@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import json
+import sys
 
 
 def cmd_init(args):
@@ -61,6 +62,12 @@ def cmd_catalog(args):
         print(f"[purview] skipped: {ex}")
 
 
+def cmd_script(args):
+    # Generic wrapper: run scripts/build_web.py with passthrough args
+    cmd = [sys.executable, "scripts/build_web.py"] + (args.args or [])
+    subprocess.call(cmd)
+
+
 def main():
     p = argparse.ArgumentParser(prog="dnai", description="DNAI command line")
     sub = p.add_subparsers(required=True)
@@ -76,6 +83,9 @@ def main():
     sp = sub.add_parser("eval"); sp.set_defaults(func=cmd_eval)
     sp = sub.add_parser("deploy"); sp.set_defaults(func=cmd_deploy)
     sp = sub.add_parser("catalog"); sp.set_defaults(func=cmd_catalog)
+    sp = sub.add_parser("script", help="Run scripts/build_web.py; pass args after --")
+    sp.add_argument('args', nargs=argparse.REMAINDER)
+    sp.set_defaults(func=cmd_script)
 
     args = p.parse_args()
     args.func(args)
@@ -83,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -23,6 +23,8 @@ CLI
 - dnai chat --q "hello"
 - dnai ingest --kb data/kb/*
 - dnai catalog  # sync assets/glossary to Purview (if configured)
+ - dnai script -- --out web/double-bubble-analyzer-multi.html
+ - make build-web  # or: make run-script
 
 Notes
 - No Docker or local web server required; handlers are Lambda-style.

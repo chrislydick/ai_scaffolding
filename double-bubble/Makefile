@@ -58,3 +58,7 @@ run:
 .PHONY: build-web
 build-web:
 	$(PY) scripts/build_web.py --out web/double-bubble-analyzer-multi.html
+
+.PHONY: run-script
+run-script:
+	$(PY) scripts/build_web.py --out web/double-bubble-analyzer-multi.html

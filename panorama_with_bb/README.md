@@ -23,9 +23,11 @@ CLI
 - dnai chat --q "hello"
 - dnai ingest --kb data/kb/*
 - dnai catalog  # sync assets/glossary to Purview (if configured)
- - dnai panorama --lat 47.6062 --lon -122.3321 --radius 1000 --wikimedia
-   - Optional keys: --flickr_key YOUR_KEY, --google_key YOUR_KEY, --mapillary_token YOUR_TOKEN, --years "2021,2023"
-   - Outputs a timestamped folder per run, with images saved under <run>/<service>/
+- dnai panorama --lat 47.6062 --lon -122.3321 --radius 1000 --wikimedia
+  - Optional keys: --flickr_key YOUR_KEY, --google_key YOUR_KEY, --mapillary_token YOUR_TOKEN, --years "2021,2023"
+  - Outputs a timestamped folder per run, with images saved under <run>/<service>/
+ - dnai script -- --lat 47.6062 --lon -122.3321 --radius 1000 --wikimedia
+ - make run-script  # runs the script with sample args
 
 Notes
 - No Docker or local web server required; handlers are Lambda-style.

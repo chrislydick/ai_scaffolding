@@ -83,6 +83,12 @@ def cmd_panorama(args):
     subprocess.call(cmd)
 
 
+def cmd_script(args):
+    # Generic wrapper: run scripts/panorama_with_bb.py with passthrough args
+    cmd = [sys.executable, "scripts/panorama_with_bb.py"] + (args.args or [])
+    subprocess.call(cmd)
+
+
 def main():
     p = argparse.ArgumentParser(prog="dnai", description="DNAI command line")
     sub = p.add_subparsers(required=True)
@@ -108,6 +114,9 @@ def main():
     sp.add_argument("--mapillary_token", default=None)
     sp.add_argument("--google_key", default=None)
     sp.set_defaults(func=cmd_panorama)
+    sp = sub.add_parser("script", help="Run scripts/panorama_with_bb.py; pass args after --")
+    sp.add_argument('args', nargs=argparse.REMAINDER)
+    sp.set_defaults(func=cmd_script)
 
     args = p.parse_args()
     args.func(args)

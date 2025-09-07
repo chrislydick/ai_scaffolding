@@ -54,3 +54,7 @@ score:
 
 run:
 	@echo "No local server. Deploy with 'make deploy-aws' or call handlers in tests."
+
+.PHONY: run-script
+run-script:
+	$(PY) scripts/panorama_with_bb.py --lat 47.6062 --lon -122.3321 --radius 1000 --wikimedia
