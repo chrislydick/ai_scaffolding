@@ -1,15 +1,4 @@
-#!/usr/bin/env python3
-"""
-Builds the multi-employee Double Bubble Analyzer HTML to a target path.
-
-Usage:
-  python scripts/build_web.py [--out web/double-bubble-analyzer-multi.html]
-"""
-import argparse
-from pathlib import Path
-
-
-HTML = r"""<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -953,18 +942,3 @@ E004,2025-08-16 07:00,2025-08-16 15:30,scheduled,B,South,Apprentice`;
   </script>
 </body>
 </html>
-"""
-
-
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="web/double-bubble-analyzer-multi.html")
-    args = ap.parse_args()
-    out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(HTML, encoding="utf-8")
-    print(f"wrote: {out}")
-
-
-if __name__ == "__main__":
-    main()
