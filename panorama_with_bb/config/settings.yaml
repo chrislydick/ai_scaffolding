@@ -1,0 +1,29 @@
+project:
+  name: Panorama With Bounding Box
+  slug: panorama_with_bb
+  description: Data + AI unified starter
+  env: dev
+
+runtime:
+  cloud: aws
+  storage: s3-athena
+  project_type: script
+  ui: amplify
+  auth: iam
+
+aws:
+  region: us-east-1
+  s3_bucket_raw: panorama_with_bb-raw
+  s3_bucket_kb: panorama_with_bb-kb
+  athena:
+    workgroup: primary
+    output_location: s3://panorama_with_bb-athena-results/
+
+azure:
+  resource_group: panorama_with_bb-rg
+  region: eastus
+
+features:
+  tracing: true
+  content_filters: true
+
