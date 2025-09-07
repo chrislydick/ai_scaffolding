@@ -20,9 +20,9 @@ Setup
    make deploy-aws
 
 CLI
-- one chat --q "hello"
-- one ingest --kb data/kb/*
-- one catalog  # sync assets/glossary to Purview (if configured)
+- dnai chat --q "hello"
+- dnai ingest --kb data/kb/*
+- dnai catalog  # sync assets/glossary to Purview (if configured)
 
 Notes
 - No Docker or local web server required; handlers are Lambda-style.

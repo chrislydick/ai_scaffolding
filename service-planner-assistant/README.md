@@ -20,10 +20,9 @@ Setup
    make deploy-aws
 
 CLI
-- one chat --q "hello"
-- one ingest --kb data/kb/*
+- dnai chat --q "hello"
+- dnai ingest --kb data/kb/*
 
 Notes
 - The template conditionally includes legos for:
   project_type=checklist, cloud=aws, storage=s3-athena, ui=amplify, auth=iam, eval_suite=light.
-

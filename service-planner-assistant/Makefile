@@ -43,7 +43,7 @@ rollback-aws:
 	@echo "[rollback-aws] Not implemented; use CloudFormation console or sam delete"
 
 seed:
-	$(PY) cli/one.py seed || true
+	$(PY) cli/dnai.py seed || true
 
 score:
 	@if [ -f src/app/tabular/score.py ]; then \

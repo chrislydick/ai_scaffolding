@@ -20,11 +20,10 @@ def main():
     elif cmd == "cli":
         import subprocess
 
-        subprocess.call([sys.executable, "cli/one.py", "--help"])
+        subprocess.call([sys.executable, "cli/dnai.py", "--help"])
     else:
         print(f"Unknown command: {cmd}")
 
 
 if __name__ == "__main__":
     main()
-
