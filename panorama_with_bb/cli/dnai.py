@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import json
+import sys
 
 
 def cmd_init(args):
@@ -61,6 +62,27 @@ def cmd_catalog(args):
         print(f"[purview] skipped: {ex}")
 
 
+def cmd_panorama(args):
+    cmd = [
+        sys.executable,
+        "scripts/panorama_with_bb.py",
+        "--lat", str(args.lat),
+        "--lon", str(args.lon),
+        "--radius", str(args.radius),
+    ]
+    if args.years:
+        cmd += ["--years", args.years]
+    if args.flickr_key:
+        cmd += ["--flickr_key", args.flickr_key]
+    if args.wikimedia:
+        cmd += ["--wikimedia"]
+    if args.mapillary_token:
+        cmd += ["--mapillary_token", args.mapillary_token]
+    if args.google_key:
+        cmd += ["--google_key", args.google_key]
+    subprocess.call(cmd)
+
+
 def main():
     p = argparse.ArgumentParser(prog="dnai", description="DNAI command line")
     sub = p.add_subparsers(required=True)
@@ -76,6 +98,16 @@ def main():
     sp = sub.add_parser("eval"); sp.set_defaults(func=cmd_eval)
     sp = sub.add_parser("deploy"); sp.set_defaults(func=cmd_deploy)
     sp = sub.add_parser("catalog"); sp.set_defaults(func=cmd_catalog)
+    sp = sub.add_parser("panorama");
+    sp.add_argument("--lat", type=float, required=True)
+    sp.add_argument("--lon", type=float, required=True)
+    sp.add_argument("--radius", type=float, required=True)
+    sp.add_argument("--years", default=None)
+    sp.add_argument("--flickr_key", default=None)
+    sp.add_argument("--wikimedia", action="store_true")
+    sp.add_argument("--mapillary_token", default=None)
+    sp.add_argument("--google_key", default=None)
+    sp.set_defaults(func=cmd_panorama)
 
     args = p.parse_args()
     args.func(args)
@@ -83,4 +115,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
