@@ -5,6 +5,22 @@ Quickstart
 - make kb-load: runs RAG ingest (if project_type=rag|hybrid).
 - make deploy-aws: deploys API via SAM (if cloud=aws).
 
+Scaffold New Project
+Use cookiecutter-dnai to create another project:
+
+```
+python3 -m cookiecutter --no-input -o . cookiecutter-dnai \
+  project_slug=my-new-project \
+  project_name="My New Project" \
+  project_type=analysis \
+  cloud=aws \
+  storage=s3-athena \
+  auth=iam \
+  eval_suite=light
+```
+
+Options: project_type={rag|checklist|tabular_ml|hybrid|analysis|script}, cloud={aws|azure}, storage={s3-athena|onelake-fabric}, ui={none|amplify|staticwebapps}, auth={iam|entra}, eval_suite={light|full}
+
 Setup
 1) Create a virtualenv and install dependencies:
    make env
