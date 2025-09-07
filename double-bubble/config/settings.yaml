@@ -1,0 +1,29 @@
+project:
+  name: Double Bubble Analyzer
+  slug: double-bubble
+  description: Data + AI unified starter
+  env: dev
+
+runtime:
+  cloud: aws
+  storage: s3-athena
+  project_type: analysis
+  ui: none
+  auth: iam
+
+aws:
+  region: us-east-1
+  s3_bucket_raw: double-bubble-raw
+  s3_bucket_kb: double-bubble-kb
+  athena:
+    workgroup: primary
+    output_location: s3://double-bubble-athena-results/
+
+azure:
+  resource_group: double-bubble-rg
+  region: eastus
+
+features:
+  tracing: true
+  content_filters: true
+

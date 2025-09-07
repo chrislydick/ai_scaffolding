@@ -1,0 +1,33 @@
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      properties:
+        q:
+          type: string
+      required: [q]
+    ChatResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
+    Error:
+      type: object
+      properties:
+        message: { type: string }
+        code: { type: string }
+pii:
+  allowlist: ["customer_id", "case_id"]
+  redactions:
+    - name: email
+      pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+      replace: "[REDACTED_EMAIL]"
+slos:
+  latency_p95_ms:
+    /chat: 1500
+    /healthz: 50
+

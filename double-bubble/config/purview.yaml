@@ -1,0 +1,14 @@
+assets:
+  - name: kb_bucket
+    type: s3
+    uri: s3://double-bubble-kb/
+  - name: raw_bucket
+    type: s3
+    uri: s3://double-bubble-raw/
+
+glossary:
+  - term: knowledge_base
+    definition: Document corpus for retrieval augmented generation.
+  - term: raw_zone
+    definition: Landing zone for unprocessed data.
+
