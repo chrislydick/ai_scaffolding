@@ -2,11 +2,10 @@ SHELL := /bin/bash
 VENV := .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
-UVICORN := $(VENV)/bin/uvicorn
 
 DEPS := \
-  boto3 botocore fastapi uvicorn pydantic pydantic-settings python-dotenv \
-  pandas pyathena sqlalchemy Jinja2 ruff black mypy pytest
+  boto3 botocore python-dotenv pandas pyathena sqlalchemy Jinja2 \
+  ruff black mypy pytest requests
 
 .PHONY: env lint test eval kb-load deploy-aws rollback-aws seed score run
 
@@ -54,5 +53,4 @@ score:
 	fi
 
 run:
-	$(UVICORN) src.app.app:app --host 0.0.0.0 --port 8000
-
+	@echo "No local server. Deploy with 'make deploy-aws' or test handlers via pytest."

@@ -22,8 +22,9 @@ Setup
 CLI
 - one chat --q "hello"
 - one ingest --kb data/kb/*
+- one catalog  # sync assets/glossary to Purview (if configured)
 
 Notes
+- No Docker or local web server required; handlers are Lambda-style.
 - The template conditionally includes legos for:
   project_type={{ cookiecutter.project_type }}, cloud={{ cookiecutter.cloud }}, storage={{ cookiecutter.storage }}, ui={{ cookiecutter.ui }}, auth={{ cookiecutter.auth }}, eval_suite={{ cookiecutter.eval_suite }}.
-

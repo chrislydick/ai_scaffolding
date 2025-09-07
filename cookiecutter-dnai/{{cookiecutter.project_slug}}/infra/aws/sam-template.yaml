@@ -19,7 +19,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../../
-      Handler: src/app/api/handlers.app
+      Handler: src/app/api/handlers.lambda_handler
       Events:
         HealthZ:
           Type: Api
@@ -44,4 +44,3 @@ Resources:
 Outputs:
   ApiUrl:
     Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/dev"
-

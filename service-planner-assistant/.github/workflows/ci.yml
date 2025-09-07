@@ -13,7 +13,7 @@ jobs:
           python -m venv .venv
           . .venv/bin/activate
           pip install --upgrade pip
-          pip install fastapi pydantic ruff mypy pytest
+          pip install ruff mypy pytest
       - name: Lint
         run: |
           . .venv/bin/activate

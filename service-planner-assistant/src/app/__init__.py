@@ -1,2 +1,1 @@
-from .api.handlers import app  # FastAPI app export
-
+# Package marker; Lambda handler lives at src/app/api/handlers.lambda_handler

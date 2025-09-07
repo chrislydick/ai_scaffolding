@@ -1,2 +1,1 @@
-from .api.handlers import app  # FastAPI app export
-
+# Package marker; handlers are Lambda-style in src/app/api/handlers.py

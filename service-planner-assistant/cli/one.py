@@ -2,6 +2,7 @@
 import argparse
 import os
 import subprocess
+import json
 
 
 def cmd_init(args):
@@ -15,22 +16,14 @@ def cmd_ingest(args):
 
 
 def cmd_chat(args):
-    # Call local FastAPI route if running, else direct model
-    try:
-        import requests
-
-        r = requests.post("http://127.0.0.1:8000/chat", json={"q": args.q}, timeout=3)
-        print(r.json())
-        return
-    except Exception:
-        pass
+    # Direct model call (no local server)
     try:
         from src.app.core.models.bedrock_client import BedrockClient
 
         client = BedrockClient()
         print(client.generate(task="rag", prompt=args.q))
     except Exception as ex:
-        print(f"chat failed: {ex}")
+        print(json.dumps({"answer": f"Local mode: {args.q}", "error": str(ex)}))
 
 
 def cmd_train(args):
@@ -49,6 +42,25 @@ def cmd_deploy(args):
     subprocess.call(["make", "deploy-aws"])  # aws path only
 
 
+def cmd_catalog(args):
+    try:
+        from src.app.governance.purview_client import register_s3_asset, upsert_glossary_term
+        import yaml
+
+        with open("config/purview.yaml", "r") as f:
+            cfg = yaml.safe_load(f)
+        assets = cfg.get("assets", [])
+        for a in assets:
+            if a.get("type") == "s3":
+                ok = register_s3_asset(a.get("name"), a.get("uri"))
+                print(f"[purview] register {a.get('uri')}: {'ok' if ok else 'skip'}")
+        for g in cfg.get("glossary", []):
+            ok = upsert_glossary_term("default", g.get("term"), g.get("definition", ""))
+            print(f"[purview] glossary {g.get('term')}: {'ok' if ok else 'skip'}")
+    except Exception as ex:
+        print(f"[purview] skipped: {ex}")
+
+
 def main():
     p = argparse.ArgumentParser(prog="one", description="One command for DNAI")
     sub = p.add_subparsers(required=True)
@@ -63,6 +75,7 @@ def main():
     sp = sub.add_parser("score"); sp.set_defaults(func=cmd_score)
     sp = sub.add_parser("eval"); sp.set_defaults(func=cmd_eval)
     sp = sub.add_parser("deploy"); sp.set_defaults(func=cmd_deploy)
+    sp = sub.add_parser("catalog"); sp.set_defaults(func=cmd_catalog)
 
     args = p.parse_args()
     args.func(args)

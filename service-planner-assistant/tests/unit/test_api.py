@@ -1,19 +1,25 @@
-from fastapi.testclient import TestClient
-from src.app.api.handlers import app
+from src.app.api.handlers import lambda_handler
+import json
 
 
-client = TestClient(app)
+def _api_event(path: str, method: str, body: dict | None = None, auth: str | None = None):
+    return {
+        "path": path,
+        "httpMethod": method,
+        "headers": {"Authorization": auth} if auth else {},
+        "body": json.dumps(body or {}),
+        "isBase64Encoded": False,
+    }
 
 
 def test_healthz():
-    r = client.get("/healthz")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    res = lambda_handler(_api_event("/healthz", "GET"), None)
+    assert res["statusCode"] == 200
+    assert json.loads(res["body"]) == {"status": "ok"}
 
 
 def test_chat():
-    r = client.post("/chat", json={"q": "hello"}, headers={"Authorization": "test"})
-    assert r.status_code == 200
-    body = r.json()
+    res = lambda_handler(_api_event("/chat", "POST", {"q": "hello"}, auth="x"), None)
+    assert res["statusCode"] == 200
+    body = json.loads(res["body"]) 
     assert "answer" in body
-
