@@ -6,7 +6,7 @@ import subprocess
 
 def cmd_init(args):
     print("Initialized project:")
-    print(f"  cloud={{{ cookiecutter.cloud }}} storage={{{ cookiecutter.storage }}} type={{{ cookiecutter.project_type }}}")
+    print("  cloud={{ cookiecutter.cloud }} storage={{ cookiecutter.storage }} type={{ cookiecutter.project_type }}")
 
 
 def cmd_ingest(args):
@@ -70,4 +70,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
