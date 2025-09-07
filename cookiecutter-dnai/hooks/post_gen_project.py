@@ -32,7 +32,7 @@ def maybe_remove_by_project_type():
     elif PROJECT_TYPE == "tabular_ml":
         rm(rag)
         rm(chk)
-    elif PROJECT_TYPE in {"analysis", "script"}:
+    elif PROJECT_TYPE in {"analysis", "script", "dashboard"}:
         # Keep core + governance; remove feature-specific legos
         rm(rag)
         rm(chk)

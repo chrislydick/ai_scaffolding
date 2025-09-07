@@ -8,14 +8,23 @@ Overview
 Choices (extra-context keys)
 - project_slug: short folder/repo name (required)
 - project_name: human‑readable name
-- project_type: rag | checklist | tabular_ml | hybrid | analysis | script
-- cloud: aws | azure
-- storage: s3-athena | onelake-fabric
-- ui: none | amplify | staticwebapps
-- auth: iam | entra
-- eval_suite: light | full
+- project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard*
+- cloud: aws | azure*
+- storage: s3-athena | onelake-fabric*
+- ui: none | amplify* | staticwebapps*
+- auth: iam | entra*
+- eval_suite: light | full*
 - script_name: default script filename under scripts/ (analysis/script only; default: app)
 - scaffold_script: yes | no (whether to create scripts/{{script_name}}.py)
+
+Legend
+- * Limited support / placeholders included but not fully implemented yet.
+  - azure: AOAI client and Azure IaC are placeholders; primary path is AWS.
+  - onelake-fabric: IO adapters are placeholders; S3/Athena is primary today.
+  - ui amplify/staticwebapps: no UI scaffold; choose for documentation/intent only.
+  - auth entra: thin header check placeholder; no full AAD integration.
+  - eval_suite full: structure only; baseline tests are stubs by default.
+  - project_type dashboard: Power BI dashboard folder and guidance only; no PBIX generated.
 
 Generate (local template path)
 - Example: Checklist on AWS with Amplify UI
@@ -69,4 +78,3 @@ Notes
   - make test
   - if RAG/hybrid: make kb-load
   - if AWS: make deploy-aws
-

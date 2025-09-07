@@ -60,3 +60,9 @@ run:
 run-script:
 	$(PY) scripts/{{ cookiecutter.script_name }}.py --name world
 {% endif %}
+{% if cookiecutter.project_type == 'dashboard' %}
+
+.PHONY: dashboard-open
+dashboard-open:
+	@echo "Open Power BI Desktop and load dashboards/powerbi/*.pbix (placeholder)."
+{% endif %}
