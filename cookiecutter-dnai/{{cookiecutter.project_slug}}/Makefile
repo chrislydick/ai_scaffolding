@@ -54,3 +54,9 @@ score:
 
 run:
 	@echo "No local server. Deploy with 'make deploy-aws' or call handlers in tests."
+{% if cookiecutter.project_type in ["analysis", "script"] %}
+
+.PHONY: run-script
+run-script:
+	$(PY) scripts/{{ cookiecutter.script_name }}.py --name world
+{% endif %}

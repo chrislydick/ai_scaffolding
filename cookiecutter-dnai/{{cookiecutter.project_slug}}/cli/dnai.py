@@ -76,6 +76,16 @@ def main():
     sp = sub.add_parser("eval"); sp.set_defaults(func=cmd_eval)
     sp = sub.add_parser("deploy"); sp.set_defaults(func=cmd_deploy)
     sp = sub.add_parser("catalog"); sp.set_defaults(func=cmd_catalog)
+    {% if cookiecutter.project_type in ["analysis", "script"] %}
+    # Run the default script in scripts/{{ cookiecutter.script_name }}.py
+    def cmd_script(args):
+        import sys, subprocess
+        cmd = [sys.executable, f"scripts/{{ cookiecutter.script_name }}.py"] + (args.args or [])
+        subprocess.call(cmd)
+    sp = sub.add_parser("script", help="Run the default script; pass following args after --")
+    sp.add_argument('args', nargs=argparse.REMAINDER)
+    sp.set_defaults(func=cmd_script)
+    {% endif %}
 
     args = p.parse_args()
     args.func(args)
@@ -83,4 +93,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

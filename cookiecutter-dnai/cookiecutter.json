@@ -10,5 +10,6 @@
   "ui": "none",
   "auth": "iam",
   "eval_suite": "light"
+  ,"script_name": "app"
+  ,"scaffold_script": "yes"
 }
-

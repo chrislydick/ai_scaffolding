@@ -24,7 +24,8 @@ CLI
 - dnai ingest --kb data/kb/*
 - dnai catalog  # sync assets/glossary to Purview (if configured)
 {% if cookiecutter.project_type in ["analysis", "script"] %}
-- place custom scripts under `scripts/` and add Make targets or CLI wrappers as needed.
+- dnai script -- --name world  # runs scripts/{{ cookiecutter.script_name }}.py with passthrough args
+- make run-script              # convenience target
 {% endif %}
 
 Notes

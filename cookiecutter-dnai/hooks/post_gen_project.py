@@ -8,6 +8,8 @@ CLOUD = "{{ cookiecutter.cloud }}"
 STORAGE = "{{ cookiecutter.storage }}"
 AUTH = "{{ cookiecutter.auth }}"
 EVAL_SUITE = "{{ cookiecutter.eval_suite }}"
+SCRIPT_NAME = "{{ cookiecutter.script_name }}"
+SCAFFOLD_SCRIPT = "{{ cookiecutter.scaffold_script }}"
 
 root = Path.cwd()
 
@@ -36,6 +38,12 @@ def maybe_remove_by_project_type():
         rm(chk)
         rm(tab)
     # hybrid keeps all
+    # Remove default script scaffold if not requested or for other project types
+    if PROJECT_TYPE not in {"analysis", "script"}:
+        rm(root / "scripts" / f"{SCRIPT_NAME}.py")
+    else:
+        if str(SCAFFOLD_SCRIPT).lower() not in {"yes", "y", "true", "1"}:
+            rm(root / "scripts" / f"{SCRIPT_NAME}.py")
 
 def maybe_remove_by_cloud():
     aws = root / "infra" / "aws"
