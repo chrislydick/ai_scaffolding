@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Service Planner Assistant API
+  version: 0.1.0
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        '200':
+          description: OK
+  /chat:
+    post:
+      summary: Chat with model
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../../config/data_contract.yaml#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                $ref: '../../config/data_contract.yaml#/components/schemas/ChatResponse'
+

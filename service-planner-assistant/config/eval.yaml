@@ -1,0 +1,15 @@
+retrieval:
+  metrics: [precision@k, citation_coverage]
+  thresholds:
+    precision@k: 0.6
+    citation_coverage: 0.8
+gen:
+  metrics: [rouge_l]
+  thresholds:
+    rouge_l: 0.2
+ml:
+  metrics: [pr_auc, roc_auc]
+  thresholds:
+    pr_auc: 0.5
+    roc_auc: 0.6
+

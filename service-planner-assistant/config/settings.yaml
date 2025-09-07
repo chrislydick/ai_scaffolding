@@ -1,0 +1,29 @@
+project:
+  name: Service Planner Assistant
+  slug: service-planner-assistant
+  description: Data + AI unified starter
+  env: dev
+
+runtime:
+  cloud: aws
+  storage: s3-athena
+  project_type: checklist
+  ui: amplify
+  auth: iam
+
+aws:
+  region: us-east-1
+  s3_bucket_raw: service-planner-assistant-raw
+  s3_bucket_kb: service-planner-assistant-kb
+  athena:
+    workgroup: primary
+    output_location: s3://service-planner-assistant-athena-results/
+
+azure:
+  resource_group: service-planner-assistant-rg
+  region: eastus
+
+features:
+  tracing: true
+  content_filters: true
+
