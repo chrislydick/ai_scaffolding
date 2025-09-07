@@ -23,6 +23,9 @@ CLI
 - dnai chat --q "hello"
 - dnai ingest --kb data/kb/*
 - dnai catalog  # sync assets/glossary to Purview (if configured)
+{% if cookiecutter.project_type in ["analysis", "script"] %}
+- place custom scripts under `scripts/` and add Make targets or CLI wrappers as needed.
+{% endif %}
 
 Notes
 - No Docker or local web server required; handlers are Lambda-style.
