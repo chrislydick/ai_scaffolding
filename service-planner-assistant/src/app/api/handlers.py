@@ -26,14 +26,12 @@ def chat(req: ChatRequest, authorization: Optional[str] = Header(None)):
     if not verify_request(authorization):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    
     try:
         from src.app.core.models.bedrock_client import BedrockClient
-    except Exception as ex:  # pragma: no cover - import fallback
+        client = BedrockClient()
+        answer = client.generate(task="rag", prompt=req.q, context_docs=[])
+        return ChatResponse(answer=answer, citations=[])
+    except Exception:
+        # Fallback to echo when AWS creds/models are unavailable
         return ChatResponse(answer=f"Local mode: {req.q}", citations=[])
-
-    client = BedrockClient()
-    answer = client.generate(task="rag", prompt=req.q, context_docs=[])
-    return ChatResponse(answer=answer, citations=[])
-    
 
