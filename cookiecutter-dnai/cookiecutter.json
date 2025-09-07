@@ -1,0 +1,14 @@
+{
+  "project_name": "DNAI Project",
+  "project_slug": "dnai_project",
+  "description": "Data + AI unified starter",
+  "author_name": "Your Name",
+  "license": "MIT",
+  "project_type": "rag",
+  "cloud": "aws",
+  "storage": "s3-athena",
+  "ui": "none",
+  "auth": "iam",
+  "eval_suite": "light"
+}
+

@@ -1,0 +1,29 @@
+project:
+  name: {{ cookiecutter.project_name }}
+  slug: {{ cookiecutter.project_slug }}
+  description: {{ cookiecutter.description }}
+  env: dev
+
+runtime:
+  cloud: {{ cookiecutter.cloud }}
+  storage: {{ cookiecutter.storage }}
+  project_type: {{ cookiecutter.project_type }}
+  ui: {{ cookiecutter.ui }}
+  auth: {{ cookiecutter.auth }}
+
+aws:
+  region: us-east-1
+  s3_bucket_raw: {{ cookiecutter.project_slug }}-raw
+  s3_bucket_kb: {{ cookiecutter.project_slug }}-kb
+  athena:
+    workgroup: primary
+    output_location: s3://{{ cookiecutter.project_slug }}-athena-results/
+
+azure:
+  resource_group: {{ cookiecutter.project_slug }}-rg
+  region: eastus
+
+features:
+  tracing: true
+  content_filters: true
+

@@ -1,0 +1,8 @@
+routes:
+  - path: /healthz
+    method: GET
+    auth: none
+  - path: /chat
+    method: POST
+    auth: {{ cookiecutter.auth }}
+

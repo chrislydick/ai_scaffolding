@@ -1,0 +1,2 @@
+{{ variable | default('This is a jinja prompt placeholder.') }}
+
