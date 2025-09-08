@@ -4,6 +4,7 @@ Overview
 - A flexible Cookiecutter template for data + AI projects on AWS or Azure.
 - Mix-and-match legos: RAG, checklists, tabular ML, or lightweight analysis/script projects.
 - Post‑generation hook prunes unused legos based on your choices.
+- One‑page summary of security and engineering features: see [CAPABILITIES.md](CAPABILITIES.md).
 
 Choices (extra-context keys)
 - project_slug: short folder/repo name (required)
