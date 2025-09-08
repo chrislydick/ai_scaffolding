@@ -26,12 +26,12 @@ python3 -m cookiecutter --no-input -o . cookiecutter-dnai \
 ```
 
 Options
-- project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard*
-- cloud: aws | azure*
-- storage: s3-athena | onelake-fabric* | sap-bw-hana*
-- ui: none | web | streamlit | react | angular* | node* | amplify* | staticwebapps*
-- auth: iam | entra*
-- eval_suite: light | full*
+- project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard†
+- cloud: aws | azure†
+- storage: s3-athena | onelake-fabric† | sap-bw-hana†
+- ui: none | web | streamlit | react | angular† | node† | amplify† | staticwebapps†
+- auth: iam | entra†
+- eval_suite: light | full†
 
 Setup
 1) Create a virtualenv and install dependencies:
@@ -67,7 +67,7 @@ Notes
   project_type={{ cookiecutter.project_type }}, cloud={{ cookiecutter.cloud }}, storage={{ cookiecutter.storage }}, ui={{ cookiecutter.ui }}, auth={{ cookiecutter.auth }}, eval_suite={{ cookiecutter.eval_suite }}.
 
 Legend
-- * Limited support / placeholders included but not fully implemented yet.
+- † Limited support / placeholders included but not fully implemented yet.
   - azure: AOAI client and Azure IaC are placeholders; primary path is AWS.
   - onelake-fabric: IO adapters are placeholders; S3/Athena is primary today.
   - sap-bw-hana: adapter provided with optional SQL/OData hooks; requires SAP clients and network access.

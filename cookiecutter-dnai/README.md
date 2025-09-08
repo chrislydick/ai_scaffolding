@@ -8,17 +8,17 @@ Overview
 Choices (extra-context keys)
 - project_slug: short folder/repo name (required)
 - project_name: human‑readable name
-- project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard*
-- cloud: aws | azure*
-- storage: s3-athena | onelake-fabric* | sap-bw-hana*
-- ui: none | web | streamlit | react | angular* | node* | amplify* | staticwebapps*
-- auth: iam | entra*
-- eval_suite: light | full*
+- project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard†
+- cloud: aws | azure†
+- storage: s3-athena | onelake-fabric† | sap-bw-hana†
+- ui: none | web | streamlit | react | angular† | node† | amplify† | staticwebapps†
+- auth: iam | entra†
+- eval_suite: light | full†
 - script_name: default script filename under scripts/ (analysis/script only; default: app)
 - scaffold_script: yes | no (whether to create scripts/{{script_name}}.py)
 
 Legend
-- * Limited support / placeholders included but not fully implemented yet.
+- † Limited support / placeholders included but not fully implemented yet.
   - azure: AOAI client and Azure IaC are placeholders; primary path is AWS.
   - onelake-fabric: IO adapters are placeholders; S3/Athena is primary today.
   - sap-bw-hana: adapter stub; requires SAP HANA client/driver and/or BW OData exposure.
