@@ -1,0 +1,13 @@
+{
+  "name": "{{ cookiecutter.project_slug }}-node-ui",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
+

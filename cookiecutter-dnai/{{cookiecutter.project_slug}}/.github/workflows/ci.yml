@@ -5,24 +5,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Setup uv + Python
+        uses: astral-sh/setup-uv@v3
         with:
           python-version: '3.11'
-      - name: Install deps
+      - name: Sync dependencies (dev)
         run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          pip install --upgrade pip
-          pip install ruff mypy pytest
+          uv sync --group dev
       - name: Lint
         run: |
-          . .venv/bin/activate
-          ruff check src || true
+          uv run ruff check src || true
+          uv run black --check src || true
       - name: Type check
         run: |
-          . .venv/bin/activate
-          mypy src || true
+          uv run mypy src || true
       - name: Tests
         run: |
-          . .venv/bin/activate
-          pytest -q
+          uv run pytest -q

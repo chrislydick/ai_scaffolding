@@ -10,8 +10,8 @@ Choices (extra-context keys)
 - project_name: human‑readable name
 - project_type: rag | checklist | tabular_ml | hybrid | analysis | script | dashboard*
 - cloud: aws | azure*
-- storage: s3-athena | onelake-fabric*
-- ui: none | amplify* | staticwebapps*
+- storage: s3-athena | onelake-fabric* | sap-bw-hana*
+- ui: none | web | streamlit | react | angular* | node* | amplify* | staticwebapps*
 - auth: iam | entra*
 - eval_suite: light | full*
 - script_name: default script filename under scripts/ (analysis/script only; default: app)
@@ -21,6 +21,11 @@ Legend
 - * Limited support / placeholders included but not fully implemented yet.
   - azure: AOAI client and Azure IaC are placeholders; primary path is AWS.
   - onelake-fabric: IO adapters are placeholders; S3/Athena is primary today.
+  - sap-bw-hana: adapter stub; requires SAP HANA client/driver and/or BW OData exposure.
+  - ui web: simple static UI scaffold; bring your own hosting (Amplify/CloudFront/Azure Static Web Apps).
+  - ui streamlit: simple Streamlit app scaffold; install/run locally or deploy as needed.
+  - ui react: Vite React scaffold; requires Node tooling.
+  - ui angular/node: scaffolds and docs only; requires Node tooling and further setup.
   - ui amplify/staticwebapps: no UI scaffold; choose for documentation/intent only.
   - auth entra: thin header check placeholder; no full AAD integration.
   - eval_suite full: structure only; baseline tests are stubs by default.
@@ -65,7 +70,7 @@ Generate (local template path)
 
 What gets generated
 - README with Make targets (env, test, eval, kb-load, deploy-aws), and CLI usage.
-- Makefile configured for a local venv (no Docker).
+- Makefile uses uv by default for env and commands (ruff/mypy/pytest); falls back to pip if uv is not installed.
 - CLI `dnai` with common subcommands; for analysis/script, includes `dnai script -- ...` passthrough.
 - AWS SAM template (when cloud=aws). Azure IaC stubs are included when cloud=azure.
 - Governance legos (PII redaction, content filters, telemetry), and optional Purview client.

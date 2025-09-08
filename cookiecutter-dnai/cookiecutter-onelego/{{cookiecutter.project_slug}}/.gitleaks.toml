@@ -1,0 +1,13 @@
+title = "Org Gitleaks Config"
+[allowlist]
+description = "Allow test keys & fixtures"
+paths = [
+  "tests/fixtures/.*",
+  ".secrets.baseline"
+]
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key"
+regex = '''AKIA[0-9A-Z]{16}'''
+entropy = 0.0
+

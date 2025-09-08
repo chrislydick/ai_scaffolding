@@ -61,6 +61,24 @@ def cmd_catalog(args):
         print(f"[purview] skipped: {ex}")
 
 
+def cmd_tfgen(args):
+    """Generate Terraform files from config/data_model.yaml"""
+    try:
+        import sys
+        from src.app.infra.tfgen import main as tfgen_main
+
+        argv = []
+        if args.out:
+            argv += ["--out", args.out]
+        if args.settings:
+            argv += ["--settings", args.settings]
+        if args.model:
+            argv += ["--model", args.model]
+        tfgen_main(argv)
+    except Exception as ex:
+        print(f"[tfgen] error: {ex}")
+
+
 def main():
     p = argparse.ArgumentParser(prog="dnai", description="DNAI command line")
     sub = p.add_subparsers(required=True)
@@ -76,6 +94,11 @@ def main():
     sp = sub.add_parser("eval"); sp.set_defaults(func=cmd_eval)
     sp = sub.add_parser("deploy"); sp.set_defaults(func=cmd_deploy)
     sp = sub.add_parser("catalog"); sp.set_defaults(func=cmd_catalog)
+    sp = sub.add_parser("tfgen", help="Generate Terraform (infra/terraform) from data_model.yaml")
+    sp.add_argument("--out", default="infra/terraform")
+    sp.add_argument("--settings", default="config/settings.yaml")
+    sp.add_argument("--model", default="config/data_model.yaml")
+    sp.set_defaults(func=cmd_tfgen)
     {% if cookiecutter.project_type in ["analysis", "script"] %}
     # Run the default script in scripts/{{ cookiecutter.script_name }}.py
     def cmd_script(args):

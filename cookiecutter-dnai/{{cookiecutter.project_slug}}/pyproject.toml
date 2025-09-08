@@ -1,0 +1,37 @@
+[project]
+name = "{{ cookiecutter.project_slug }}"
+version = "0.1.0"
+description = "{{ cookiecutter.project_name }}"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+
+dependencies = [
+  "boto3",
+  "botocore",
+  "python-dotenv",
+  "pandas",
+  "pyathena",
+  "sqlalchemy",
+  "Jinja2",
+  "PyYAML",
+  "requests",
+]
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "black",
+  "mypy",
+  "pytest",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true

@@ -1,0 +1,5 @@
+
+# Require security/infra review on policy or infra changes
+/policy/**     @{{cookiecutter.github_org}}/security @{{cookiecutter.github_org}}/infra
+/infra/**      @{{cookiecutter.github_org}}/infra
+

@@ -1,0 +1,76 @@
+name: ci-security
+on:
+  pull_request:
+  push: { branches: ["main"] }
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+
+      - name: Install tooling
+        run: |
+          pip install pre-commit detect-secrets pip-audit conftest
+          curl -sSL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+          curl -sSL https://github.com/bridgecrewio/checkov/releases/latest/download/checkov_$(uname -s | tr '[:upper:]' '[:lower:]')_amd64 -o /usr/local/bin/checkov && chmod +x /usr/local/bin/checkov
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(uname -s | tr '[:upper:]' '[:lower:]')_x64.tar.gz | tar xz && sudo mv gitleaks /usr/local/bin/
+
+      - name: Pre-commit (lint & IaC checks)
+        if: "!contains(github.event.pull_request.labels.*.name, 'security-override')"
+        run: pre-commit run --all-files
+
+      - name: Terraform init/validate/plan (if present)
+        if: "!contains(github.event.pull_request.labels.*.name, 'security-override')"
+        run: |
+          if [ -d "infra/terraform" ]; then
+            terraform -chdir=infra/terraform init -backend=false
+            terraform -chdir=infra/terraform validate
+            terraform -chdir=infra/terraform plan -out=tf.plan || true
+            terraform -chdir=infra/terraform show -json tf.plan > tfplan.json || echo "{}" > tfplan.json
+          else
+            echo "No infra/terraform directory; skipping plan."
+          fi
+
+      - name: Checkov plan scan
+        if: "!contains(github.event.pull_request.labels.*.name, 'security-override')"
+        run: |
+          if [ -f "tfplan.json" ]; then checkov -f tfplan.json --quiet; else echo "No tfplan.json"; fi
+
+      - name: Load waivers and run OPA (Conftest)
+        if: "!contains(github.event.pull_request.labels.*.name, 'security-override')"
+        run: |
+          python - << 'PY'
+import json, yaml, sys
+try:
+  plan = json.load(open("tfplan.json"))
+except Exception:
+  plan = {}
+try:
+  w = yaml.safe_load(open("policy/opa/waivers.yaml")) or {}
+except Exception:
+  w = {}
+plan["waivers"] = w.get("waivers", [])
+json.dump(plan, open("tfplan_waived.json","w"))
+PY
+          conftest test tfplan_waived.json -p policy/opa || true
+
+      - name: Python deps audit (if present)
+        if: "!contains(github.event.pull_request.labels.*.name, 'security-override')"
+        run: |
+          if [ -f "requirements.txt" ]; then pip-audit -r requirements.txt || (echo "::warning::Deps audit failed"; exit 1); fi
+
+      - name: OpenSSF Scorecard
+        uses: ossf/scorecard-action@v2.3.3
+        with: { results_file: results.sarif, results_format: sarif }
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with: { sarif_file: results.sarif }
+

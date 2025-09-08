@@ -10,6 +10,7 @@ AUTH = "{{ cookiecutter.auth }}"
 EVAL_SUITE = "{{ cookiecutter.eval_suite }}"
 SCRIPT_NAME = "{{ cookiecutter.script_name }}"
 SCAFFOLD_SCRIPT = "{{ cookiecutter.scaffold_script }}"
+UI = "{{ cookiecutter.ui }}"
 
 root = Path.cwd()
 
@@ -64,9 +65,36 @@ def maybe_remove_by_storage():
         rm(io_dir / "fabric_io.py")
         rm(io_dir / "onelake_io.py")
         rm(io_dir / "blob_io.py")
-    else:
+        rm(io_dir / "sap_bw_io.py")
+    elif STORAGE == "onelake-fabric":
         rm(io_dir / "s3_io.py")
         rm(io_dir / "athena_io.py")
+        rm(io_dir / "sap_bw_io.py")
+    elif STORAGE == "sap-bw-hana":
+        rm(io_dir / "s3_io.py")
+        rm(io_dir / "athena_io.py")
+        rm(io_dir / "fabric_io.py")
+        rm(io_dir / "onelake_io.py")
+        rm(io_dir / "blob_io.py")
+    else:
+        # Unknown storage: keep only core, remove specialized adapters
+        rm(io_dir / "s3_io.py")
+        rm(io_dir / "athena_io.py")
+        rm(io_dir / "fabric_io.py")
+        rm(io_dir / "onelake_io.py")
+        rm(io_dir / "blob_io.py")
+        rm(io_dir / "sap_bw_io.py")
+
+def maybe_remove_by_ui():
+    ui_root = root / "ui"
+    if UI in {"web", "streamlit", "react", "angular", "node"}:
+        keep = UI
+        for child in (ui_root.iterdir() if ui_root.exists() else []):
+            if child.is_dir() and child.name != keep:
+                rm(child)
+    else:
+        # none or unknown: remove all UI
+        rm(ui_root)
 
 def maybe_trim_eval_suite():
     # For light suite, keep a single eval test
@@ -79,6 +107,7 @@ def main():
     maybe_remove_by_project_type()
     maybe_remove_by_cloud()
     maybe_remove_by_storage()
+    maybe_remove_by_ui()
     maybe_trim_eval_suite()
 
 if __name__ == "__main__":

@@ -1,0 +1,30 @@
+version: 1
+database: "{{ cookiecutter.project_slug }}_db"
+workgroup: "primary"
+output_location: "s3://{{ cookiecutter.project_slug }}-athena-results/"
+
+buckets:
+  # Set create: true to let Terraform create these buckets; otherwise they are referenced only
+  - name: "{{ cookiecutter.project_slug }}-raw"
+    create: false
+  - name: "{{ cookiecutter.project_slug }}-kb"
+    create: false
+
+datasets:
+  - name: customers
+    bucket: "{{ cookiecutter.project_slug }}-raw"
+    path: "customers/"
+    format: parquet  # parquet|csv
+    partition_keys:
+      - { name: ds, type: string }
+    columns:
+      - { name: customer_id, type: string }
+      - { name: email, type: string }
+
+  - name: transactions
+    bucket: "{{ cookiecutter.project_slug }}-raw"
+    path: "transactions/"
+    format: parquet
+    columns:
+      - { name: tx_id, type: string }
+      - { name: amount, type: double }

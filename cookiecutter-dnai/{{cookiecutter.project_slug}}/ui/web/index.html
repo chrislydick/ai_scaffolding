@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ cookiecutter.project_name }} — Web UI</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="config.js"></script>
+    <script defer src="main.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>{{ cookiecutter.project_name }}</h1>
+      <p class="sub">Simple browser UI that POSTs to the /chat endpoint.</p>
+
+      <div class="card">
+        <label for="q">Prompt</label>
+        <textarea id="q" rows="4" placeholder="Ask something..."></textarea>
+
+        <div class="row">
+          <input id="auth" type="text" placeholder="Authorization header (optional)" />
+          <button id="send">Send</button>
+        </div>
+      </div>
+
+      <h2>Response</h2>
+      <pre id="out" class="out">(awaiting request)</pre>
+    </main>
+  </body>
+  </html>
+

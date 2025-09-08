@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ cookiecutter.project_name }} — Node UI</title>
+  </head>
+  <body>
+    <main style="max-width: 760px; margin: 40px auto; padding: 16px">
+      <h1>{{ cookiecutter.project_name }} — Node UI</h1>
+      <p>Served by Express; sends to /api/chat which proxies to BACKEND_URL.</p>
+      <label>Prompt</label>
+      <textarea id="q" rows="4" style="width:100%"></textarea>
+      <div style="margin-top:8px">
+        <input id="auth" placeholder="Authorization (optional)" style="width:70%" />
+        <button id="send">Send</button>
+      </div>
+      <h2>Response</h2>
+      <pre id="out">(awaiting request)</pre>
+    </main>
+    <script>
+      document.getElementById('send').onclick = async () => {
+        const q = document.getElementById('q').value
+        const auth = document.getElementById('auth').value
+        const headers = { 'Content-Type': 'application/json' }
+        if (auth) headers['Authorization'] = auth
+        const resp = await fetch('/api/chat', { method: 'POST', headers, body: JSON.stringify({ q }) })
+        document.getElementById('out').textContent = await resp.text()
+      }
+    </script>
+  </body>
+  </html>
+
