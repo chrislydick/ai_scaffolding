@@ -22,22 +22,22 @@ function App() {
   }
 
   return (
-    <main style={{ maxWidth: 760, margin: '40px auto', padding: 16 }}>
+    <main>
       <h1>{{ cookiecutter.project_name }} — React</h1>
-      <p>Simple React UI that POSTs to the /chat endpoint.</p>
-      <div>
+      <p className="sub">Simple React UI that POSTs to the /chat endpoint.</p>
+      <div className="card">
         <label>API base URL</label>
-        <input value={api} onChange={e => setApi(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: 8, marginBottom: 8 }} />
+        <input value={api} onChange={e => setApi(e.target.value)} placeholder="https://..." />
         <label>Authorization header (optional)</label>
-        <input value={auth} onChange={e => setAuth(e.target.value)} placeholder="Bearer ..." style={{ width: '100%', padding: 8, marginBottom: 8 }} />
+        <input value={auth} onChange={e => setAuth(e.target.value)} placeholder="Bearer ..." />
         <label>Prompt</label>
-        <textarea value={q} onChange={e => setQ(e.target.value)} rows={4} style={{ width: '100%', padding: 8 }} />
+        <textarea value={q} onChange={e => setQ(e.target.value)} rows={4} />
         <div style={{ marginTop: 8 }}>
-          <button onClick={send}>Send</button>
+          <button className="primary" onClick={send}>Send</button>
         </div>
       </div>
       <h2>Response</h2>
-      <pre style={{ background: '#0f1420', color: '#eaeaea', padding: 12, borderRadius: 8 }}>{out}</pre>
+      <pre className="out">{out}</pre>
     </main>
   )
 }

@@ -1,0 +1,32 @@
+/* Generic dark theme (React) */
+:root{
+  --bg: {{ cookiecutter.brand_bg }};
+  --panel: {{ cookiecutter.brand_panel }};
+  --text: {{ cookiecutter.brand_text }};
+  --muted: {{ cookiecutter.brand_muted }};
+  --accent: {{ cookiecutter.brand_accent }};
+  --ok:#3ecf8e;
+  --warn:#ffb648;
+  --bad:#ff5d5d;
+  --grid: {{ cookiecutter.brand_grid }};
+  --chip:#262b36;
+}
+html, body { height:100%; }
+body{
+  margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background:var(--bg); color:var(--text);
+}
+.brandbar{ display:flex; align-items:center; gap:10px; padding:10px 20px; background: rgba(0,0,0,0.2); border-bottom:1px solid var(--grid); }
+.brandbar img{ height:22px; }
+.brandbar .name{ font-weight:600; letter-spacing:0.2px; }
+main{ padding:18px 20px 60px; max-width:960px; margin:0 auto; }
+.card{ background:var(--panel); border:1px solid var(--grid); border-radius:12px; padding:14px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); }
+.sub{ color: var(--muted); }
+label{ font-size:12px; color:var(--muted); display:block; margin:8px 0 6px; }
+input, select, textarea, button{
+  width:100%; box-sizing:border-box; padding:8px 10px; border-radius:8px; border:1px solid var(--grid);
+  background:#0c0f14; color:var(--text); font-size:13px; outline:none;
+}
+button{ cursor:pointer; background:linear-gradient(180deg, #1a2230, #10151d); width:auto; }
+.primary{ background: linear-gradient(180deg, #2270ff, #1a57c7); border:0; color:white; }
+.out{ background:#0a0d12; border:1px solid var(--grid); padding:12px; border-radius:8px; min-height:120px; }

@@ -36,7 +36,7 @@ def _chat(event: Dict[str, Any]):
 
     
     try:
-        from src.app.core.models.bedrock_client import BedrockClient
+        from app.core.models.bedrock_client import BedrockClient
 
         client = BedrockClient()
         answer = client.generate(task="rag", prompt=q, context_docs=[])

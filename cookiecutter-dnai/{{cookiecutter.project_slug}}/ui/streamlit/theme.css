@@ -1,0 +1,32 @@
+/* Generic dark theme for Streamlit */
+:root{
+  --bg: {{ cookiecutter.brand_bg }};
+  --panel: {{ cookiecutter.brand_panel }};
+  --text: {{ cookiecutter.brand_text }};
+  --muted: {{ cookiecutter.brand_muted }};
+  --accent: {{ cookiecutter.brand_accent }};
+  --grid: {{ cookiecutter.brand_grid }};
+}
+
+html, body { background: var(--bg); color: var(--text); }
+
+/* Streamlit component tweaks */
+.stApp { background: var(--bg); }
+.stMarkdown, .stText, .stTitle, .stCaption { color: var(--text); }
+section.main > div { max-width: 920px; }
+
+/* Inputs and buttons */
+button[kind="primary"], .stButton > button {
+  background: linear-gradient(180deg, #2270ff, #1a57c7) !important;
+  color: #fff !important; border: 0 !important; border-radius: 8px !important;
+}
+.stButton > button:hover { filter: brightness(0.98); }
+.stTextInput > div > div > input, .stTextArea > div > textarea {
+  background: #0c0f14 !important; color: var(--text) !important; border: 1px solid var(--grid) !important; border-radius: 8px !important;
+}
+.stAlert { background: var(--panel) !important; border: 1px solid var(--grid) !important; }
+
+/* Brand bar */
+.brandbar{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--grid); margin-bottom:12px; }
+.brandbar .name{ font-weight:600; letter-spacing:0.2px; }
+.muted{ color: var(--muted); }

@@ -3,6 +3,9 @@ VENV := .venv
 PY := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
+# Ensure Python can import from our src/ tree
+export PYTHONPATH := $(CURDIR)/src
+
 DEPS := \
   boto3 botocore python-dotenv pandas pyathena sqlalchemy Jinja2 \
   ruff black mypy pytest requests
@@ -29,7 +32,7 @@ eval:
 
 kb-load:
 	@if [ -f src/app/rag/ingest.py ]; then \
-		$(PY) src/app/rag/ingest.py; \
+		$(PY) -m app.rag.ingest; \
 	else \
 		echo "[kb-load] RAG ingest not available for project_type=analysis"; \
 	fi
@@ -47,7 +50,7 @@ seed:
 
 score:
 	@if [ -f src/app/tabular/score.py ]; then \
-		$(PY) src/app/tabular/score.py; \
+		$(PY) -m app.tabular.score; \
 	else \
 		echo "[score] Tabular score not available"; \
 	fi

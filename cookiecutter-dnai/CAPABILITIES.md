@@ -15,7 +15,7 @@ Legend: † Limited support / placeholder areas
 - Governance Files: `CODEOWNERS`, PR template, `.gitattributes`, `SECURITY.md`, docs/SECURITY‑OVERRIDES.md
 - Local Commands: `make security` runs all local scans; `make sbom` builds a CycloneDX SBOM
 - Default‑Pass Setup: CI passes on a fresh project (no Terraform required); guard‑rails engage as infra is added
-- Template Source: security pack lives in `cookiecutter-onelego/` and is intended for security‑first projects
+- Template Source: security pack is optional and can be layered onto any project; consult your security team for current guidance.
 
 **Engineering & Data Science Velocity**
 - uv‑First Python: fast envs with `pyproject.toml`, `uv sync`, and `uv run`; CI uses `astral-sh/setup-uv`
@@ -29,13 +29,12 @@ Legend: † Limited support / placeholder areas
 - Deploy: AWS SAM template and `make deploy-aws`; no Docker required for local dev
 - Quality: ruff/black/mypy/pytest; light eval tests included; CI runs fast via uv
 
-**When to Use Which Template**
-- cookiecutter‑dnai: accelerate prototyping and delivery for data/AI apps (RAG, checklists, tabular ML, scripts)
-- cookiecutter‑onelego: security guard‑rails for any repo (pre‑commit, CI scanners, OPA waivers, SBOM, Scorecard)
+**When to Use This Template**
+- cookiecutter‑dnai: accelerate prototyping and delivery for data/AI apps (RAG, checklists, tabular ML, scripts). Add security guard‑rails as needed.
 
 **Getting Started**
 - Data/AI project: `python3 -m cookiecutter -o . cookiecutter-dnai ...`
-- Security‑first project: `python3 -m cookiecutter -o . cookiecutter-onelego ...`
+- To add security guard‑rails, see your org’s security pack or internal docs.
 
 Questions or gaps? Open an issue or ask for a tailored scaffold.
 

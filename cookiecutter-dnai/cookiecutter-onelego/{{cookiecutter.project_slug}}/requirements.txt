@@ -1,6 +1,0 @@
-black
-ruff
-bandit
-detect-secrets
-pip-audit
-

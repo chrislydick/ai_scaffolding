@@ -1,0 +1,11 @@
+:root{
+  /* Override theme colors with brand picks */
+  --accent: {{ cookiecutter.brand_accent }};
+  --text: {{ cookiecutter.brand_text }};
+  --muted: {{ cookiecutter.brand_muted }};
+  --bg: {{ cookiecutter.brand_bg }};
+  --panel: {{ cookiecutter.brand_panel }};
+  --grid: {{ cookiecutter.brand_grid }};
+}
+
+/* Optional brand bar tweaks can go here */

@@ -13,6 +13,7 @@ Choices (extra-context keys)
 - cloud: aws | azure†
 - storage: s3-athena | onelake-fabric† | sap-bw-hana†
 - ui: none | web | streamlit | react | angular† | node† | amplify† | staticwebapps†
+  - Branding options (web/react/streamlit): brand_name, brand_tagline, brand_accent, brand_text, brand_muted, brand_bg, brand_panel, brand_grid
 - auth: iam | entra†
 - eval_suite: light | full†
 - script_name: default script filename under scripts/ (analysis/script only; default: app)
@@ -84,3 +85,12 @@ Notes
   - make test
   - if RAG/hybrid: make kb-load
   - if AWS: make deploy-aws
+  - if ui=web: open ui/web/index.html or `make ui-serve`
+
+Branding and Theme
+- Reusable dark theme inspired by Double‑Bubble; framework‑agnostic.
+- Web: `ui/web/themes/theme-dark.css` + `ui/web/brand.css`
+- React: `ui/react/theme/theme-dark.css` + `ui/react/brand.css`
+- Streamlit: `ui/streamlit/theme.css` (auto‑injected)
+- Assets: `ui/**/assets/logo.svg` uses `brand_name` and `brand_accent` by default.
+- Customize by editing Cookiecutter values or tweaking the brand CSS after generation.

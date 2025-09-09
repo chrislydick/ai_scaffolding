@@ -12,4 +12,12 @@
   "eval_suite": "light"
   ,"script_name": "app"
   ,"scaffold_script": "yes"
+  ,"brand_name": "Data & AI"
+  ,"brand_tagline": "Internal Tools"
+  ,"brand_accent": "#4aa3ff"
+  ,"brand_text": "#e7e9ee"
+  ,"brand_muted": "#a0a4ae"
+  ,"brand_bg": "#0f1115"
+  ,"brand_panel": "#171a21"
+  ,"brand_grid": "#2a2f3a"
 }

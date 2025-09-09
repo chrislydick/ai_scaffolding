@@ -4,11 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ cookiecutter.project_name }} — Web UI</title>
+    <link rel="stylesheet" href="themes/theme-dark.css" />
+    <link rel="stylesheet" href="brand.css" />
     <link rel="stylesheet" href="styles.css" />
     <script defer src="config.js"></script>
     <script defer src="main.js"></script>
   </head>
   <body>
+    <header class="brandbar">
+      <img src="assets/logo.svg" alt="{{ cookiecutter.brand_name }}" />
+      <div class="name">{{ cookiecutter.brand_name }}</div>
+      <div class="sub">{{ cookiecutter.brand_tagline }}</div>
+    </header>
     <main>
       <h1>{{ cookiecutter.project_name }}</h1>
       <p class="sub">Simple browser UI that POSTs to the /chat endpoint.</p>

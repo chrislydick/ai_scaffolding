@@ -4,8 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ cookiecutter.project_name }} — React</title>
+    <link rel="stylesheet" href="/theme/theme-dark.css" />
+    <link rel="stylesheet" href="/brand.css" />
   </head>
   <body>
+    <header class="brandbar">
+      <img src="/assets/logo.svg" alt="{{ cookiecutter.brand_name }}" />
+      <div class="name">{{ cookiecutter.brand_name }}</div>
+      <div class="sub">{{ cookiecutter.brand_tagline }}</div>
+    </header>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

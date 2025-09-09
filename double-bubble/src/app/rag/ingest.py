@@ -6,7 +6,7 @@ import glob
 import os
 from pathlib import Path
 
-from src.app.core.models.bedrock_client import BedrockClient
+from app.core.models.bedrock_client import BedrockClient
 
 
 def iter_docs(pattern: str):
