@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,9 +91,9 @@
       <h2>1) Load data</h2>
       <div class="controls">
         <div class="field wide">
-          <label>Upload CSV (columns: <span class="kbd">employee_id,start_datetime,end_datetime</span>, optional: <span class="kbd">shift_type, crew, district, job_class</span>)</label>
+          <label>Upload CSV (preferred hourly grid: <span class="kbd">employee_id,calendar_date,00..23[,shift_type,...]</span>; legacy <span class="kbd">start_datetime,end_datetime</span> rows still work)</label>
           <input type="file" id="fileInput" accept=".csv" />
-          <div class="hint">Timestamps like <span class="kbd">2025-08-10 07:00</span> or ISO-8601 are supported. Or paste a CSV URL and click “Fetch CSV”.</div>
+          <div class="hint">Each row should be a single employee + date. Hour columns hold 0–1 hours for that slot (e.g., 0.5 = 30m). Legacy start/end rows or ISO timestamps remain supported.</div>
         </div>
         <div class="field wide">
           <label>CSV URL (optional)</label>
@@ -176,7 +177,7 @@
         <div class="legend">
           <span class="swatch"></span> Shift
           <span class="swatch hatch"></span> Double-bubble (&lt; rest threshold)
-          <span class="swatch callin"></span> Call-in (dashed outline)
+          <span class="swatch callin"></span> Call-in / OT2 (dashed outline)
           <span class="swatch dev"></span> Deviates from baseline (&gt; threshold)
         </div>
       </div>
@@ -272,6 +273,76 @@
   const minutesOfDay = (d) => d.getHours()*60 + d.getMinutes() + d.getSeconds()/60;
   const hoursBetween = (a,b) => (b - a) / 36e5;
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes(), d.getSeconds());
+  const HOUR_COLUMNS = Array.from({length:24}, (_,i)=> pad(i));
+  const SCHEDULED_TYPES = new Set(["scheduled","reg","regular"]);
+  const CALLIN_TYPES = new Set(["call-in","callin","ot2","ot"]);
+  const normalizeType = (value) => (value ?? "").toString().trim().toLowerCase();
+  const isScheduledType = (value) => SCHEDULED_TYPES.has(normalizeType(value));
+  const isCallInType = (value) => CALLIN_TYPES.has(normalizeType(value));
+
+  function parseCalendarDate(value){
+    if (value == null) return null;
+    const text = value.toString().trim();
+    if (!text) return null;
+    const slash = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+    if (slash){
+      const mm = parseInt(slash[1], 10);
+      const dd = parseInt(slash[2], 10);
+      let yy = parseInt(slash[3], 10);
+      if (yy < 100) yy += 2000;
+      return new Date(yy, mm-1, dd);
+    }
+    const parsed = new Date(text);
+    if (isNaN(parsed)) return null;
+    return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+  }
+
+  function isHourlyRow(row){
+    if (!row) return false;
+    const dateVal = row.calendar_date ?? row.calendarDate ?? row.CalendarDate ?? row.date;
+    if (!dateVal) return false;
+    return HOUR_COLUMNS.some(col => Object.prototype.hasOwnProperty.call(row, col));
+  }
+
+  function expandHourlyRow(row){
+    if (!isHourlyRow(row)) return null;
+    const emp = (row.employee_id ?? row.Employee ?? row.emp ?? "").toString().trim();
+    const dateRaw = row.calendar_date ?? row.calendarDate ?? row.CalendarDate ?? row.date ?? "";
+    const day = parseCalendarDate(dateRaw);
+    if (!emp || !day) return [];
+    const baseRaw = {...row};
+    const typ = normalizeType(row.shift_type ?? row.type ?? row.Type ?? "") || "scheduled";
+    const segs = [];
+    let current = null;
+    for (const col of HOUR_COLUMNS){
+      if (!Object.prototype.hasOwnProperty.call(row, col)) continue;
+      const rawVal = row[col];
+      const val = typeof rawVal === "number" ? rawVal : parseFloat(rawVal);
+      if (!val || !isFinite(val) || val <= 0){
+        if (current){ segs.push(current); current = null; }
+        continue;
+      }
+      const clamped = Math.min(Math.max(val, 0), 1);
+      const hourInt = parseInt(col, 10);
+      if (isNaN(hourInt)) continue;
+      const slotStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hourInt, 0, 0);
+      const slotEnd = new Date(slotStart.getTime() + clamped * 36e5);
+      if (current && Math.abs(slotStart.getTime() - current.end.getTime()) < 1){
+        current.end = slotEnd;
+      } else {
+        if (current) segs.push(current);
+        current = {
+          employee_id: emp,
+          start: slotStart,
+          end: slotEnd,
+          shift_type: typ,
+          raw: {...baseRaw}
+        };
+      }
+    }
+    if (current) segs.push(current);
+    return segs;
+  }
 
   function parseCSVbasic(text){
     const rows = [];
@@ -343,16 +414,21 @@
   function normalizeRows(rows){
     const out = [];
     for (const r of rows){
+      const hourly = expandHourlyRow(r);
+      if (hourly){
+        out.push(...hourly);
+        continue;
+      }
       const emp = (r.employee_id ?? r.Employee ?? r.emp ?? "").toString().trim();
       const st = parseMaybe(r.start_datetime ?? r.start ?? r.start_time ?? r.Start ?? "");
       const en = parseMaybe(r.end_datetime ?? r.end ?? r.end_time ?? r.End ?? "");
-      const typ = (r.shift_type ?? r.type ?? r.Type ?? "").toString().trim().toLowerCase();
+      const typ = normalizeType(r.shift_type ?? r.type ?? r.Type ?? "") || "scheduled";
       if (!emp || !st || !en) continue;
       if (en < st){
         const en2 = addDays(en, 1);
-        out.push({employee_id: emp, start: st, end: en2, shift_type: typ || "scheduled", raw:r});
+        out.push({employee_id: emp, start: st, end: en2, shift_type: typ, raw:r});
       } else {
-        out.push({employee_id: emp, start: st, end: en, shift_type: typ || "scheduled", raw:r});
+        out.push({employee_id: emp, start: st, end: en, shift_type: typ, raw:r});
       }
       // copy optional keys for availability matching
       for (const k of Object.keys(r)){
@@ -399,7 +475,7 @@
     const baseline = new Map();
     for (const [emp, list] of byEmp){
       const pool = (params.baselineMode === "scheduled")
-        ? list.filter(x=> (x.shift_type||"").toLowerCase()==="scheduled")
+        ? list.filter(x=> isScheduledType(x.shift_type))
         : list.slice();
       const use = pool.length ? pool : list;
       const smins = use.map(x=> minutesOfDay(x.start)).sort((a,b)=>a-b);
@@ -609,13 +685,14 @@
         r.setAttribute("x", X); r.setAttribute("y", top + 8);
         r.setAttribute("width", Math.max(1, Wd)); r.setAttribute("height", rowH - 16);
         r.setAttribute("fill", "rgba(100,180,255,0.32)");
-        r.setAttribute("stroke", s.deviation ? "#ffb648" : (s.shift_type==="call-in" ? "#a0a4ae" : "rgba(0,0,0,0)"));
-        r.setAttribute("stroke-width", s.shift_type==="call-in" ? "1.5" : (s.deviation ? "1.5":"0"));
-        r.setAttribute("stroke-dasharray", s.shift_type==="call-in" ? "4 4" : (s.deviation ? "0" : "0"));
+        const isCallin = isCallInType(s.shift_type);
+        r.setAttribute("stroke", s.deviation ? "#ffb648" : (isCallin ? "#a0a4ae" : "rgba(0,0,0,0)"));
+        r.setAttribute("stroke-width", isCallin ? "1.5" : (s.deviation ? "1.5":"0"));
+        r.setAttribute("stroke-dasharray", isCallin ? "4 4" : (s.deviation ? "0" : "0"));
         if (s.double_bubble) r.setAttribute("fill", "url(#hatch)");
 
         const durH = hoursBetween(s.start, s.end);
-        const callin = (s.shift_type||"") === "call-in";
+        const callin = isCallin;
         const tip = `
           <div><strong>${s.employee_id}</strong></div>
           <div>${toLocalISO(s.start)} → ${toLocalISO(s.end)} (${fmt2(durH)}h)</div>
@@ -688,7 +765,7 @@
         <td>${fmt2(dur)}</td>
         <td>${f.rest_gap_h==null?'-':fmt2(f.rest_gap_h)}</td>
         <td>${f.double_bubble?'<span class="pill bad">Yes</span>':'<span class="pill">No</span>'}</td>
-        <td>${(f.shift_type||"")==="call-in"?'<span class="pill ok">Yes</span>':'<span class="pill">No</span>'}</td>
+        <td>${isCallInType(f.shift_type)?'<span class="pill ok">Yes</span>':'<span class="pill">No</span>'}</td>
         <td>${f.deviation?'<span class="pill warn">'+fmt2(f.dev_hours)+'h</span>':'<span class="pill">No</span>'}</td>
         <td title="${availNames||''}">${f._alternates?.length||0}</td>
         <td class="right">${fmt2(savings)}</td>
@@ -812,37 +889,99 @@
       document.querySelector("#loadStatus").textContent = "Error fetching: " + err.message;
     }
   });
-  document.querySelector("#loadSampleBtn").addEventListener("click", async ()=>{
-    const sample = `employee_id,start_datetime,end_datetime,shift_type,crew,district,job_class
-E001,2025-08-11 07:00,2025-08-11 15:30,scheduled,A,North,Lineman
-E001,2025-08-11 19:30,2025-08-11 22:30,call-in,A,North,Lineman
-E001,2025-08-12 07:00,2025-08-12 15:30,scheduled,A,North,Lineman
-E001,2025-08-13 07:00,2025-08-13 15:30,scheduled,A,North,Lineman
-E001,2025-08-13 20:00,2025-08-14 00:30,call-in,A,North,Lineman
-E001,2025-08-14 07:00,2025-08-14 15:30,scheduled,A,North,Lineman
-E001,2025-08-15 07:00,2025-08-15 15:30,scheduled,A,North,Lineman
-E001,2025-08-16 08:00,2025-08-16 14:00,call-in,A,North,Lineman
-E002,2025-08-11 07:00,2025-08-11 15:30,scheduled,A,North,Lineman
-E002,2025-08-12 07:00,2025-08-12 15:30,scheduled,A,North,Lineman
-E002,2025-08-12 23:45,2025-08-13 03:15,call-in,A,North,Lineman
-E002,2025-08-13 07:00,2025-08-13 15:30,scheduled,A,North,Lineman
-E002,2025-08-14 07:00,2025-08-14 15:30,scheduled,A,North,Lineman
-E002,2025-08-14 21:30,2025-08-15 01:00,call-in,A,North,Lineman
-E002,2025-08-15 07:00,2025-08-15 15:30,scheduled,A,North,Lineman
-E002,2025-08-15 20:00,2025-08-15 22:00,call-in,A,North,Lineman
-E002,2025-08-16 08:00,2025-08-16 12:00,call-in,A,North,Lineman
-E003,2025-08-11 06:30,2025-08-11 15:00,scheduled,B,South,Lineman
-E003,2025-08-13 06:30,2025-08-13 15:00,scheduled,B,South,Lineman
-E003,2025-08-14 06:30,2025-08-14 15:00,scheduled,B,South,Lineman
-E003,2025-08-15 06:30,2025-08-15 14:30,scheduled,B,South,Lineman
-E003,2025-08-15 23:00,2025-08-16 06:00,call-in,B,South,Lineman
-E003,2025-08-16 12:00,2025-08-16 20:00,call-in,B,South,Lineman
-E004,2025-08-11 07:00,2025-08-11 15:30,scheduled,B,South,Apprentice
-E004,2025-08-14 07:00,2025-08-14 15:30,scheduled,B,South,Apprentice
-E004,2025-08-16 07:00,2025-08-16 15:30,scheduled,B,South,Apprentice`;
-    rawRows = parseCSV(sample);
+  document.querySelector("#loadSampleBtn").addEventListener("click", ()=>{
+    const hourCols = HOUR_COLUMNS.slice();
+    const header = ["employee_id","calendar_date", ...hourCols, "shift_type","crew","district","job_class"];
+    const sampleRows = [
+      {
+        employee_id:"E001",
+        calendar_date:"08/11/2025",
+        shift_type:"scheduled",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "07":1,"08":1,"09":1,"10":1,"11":1,"12":1,"13":1,"14":0.5 }
+      },
+      {
+        employee_id:"E001",
+        calendar_date:"08/12/2025",
+        shift_type:"scheduled",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "07":1,"08":1,"09":1,"10":1,"11":1,"12":1,"13":1,"14":1,"15":0.5 }
+      },
+      {
+        employee_id:"E001",
+        calendar_date:"08/13/2025",
+        shift_type:"call-in",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "19":1,"20":1,"21":1,"22":1,"23":0.75 }
+      },
+      {
+        employee_id:"E002",
+        calendar_date:"08/11/2025",
+        shift_type:"reg",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "06":1,"07":1,"08":1,"09":1,"10":1,"11":1,"12":1,"13":1 }
+      },
+      {
+        employee_id:"E002",
+        calendar_date:"08/12/2025",
+        shift_type:"reg",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "06":1,"07":1,"08":1,"09":1,"10":1,"11":1,"12":1,"13":1,"14":1,"15":1,"16":0.5,"21":1,"22":1,"23":0.5 }
+      },
+      {
+        employee_id:"E002",
+        calendar_date:"08/13/2025",
+        shift_type:"ot2",
+        crew:"A",
+        district:"North",
+        job_class:"Lineman",
+        hours:{ "04":1,"05":1,"06":0.5 }
+      },
+      {
+        employee_id:"E003",
+        calendar_date:"08/11/2025",
+        shift_type:"pto",
+        crew:"B",
+        district:"South",
+        job_class:"Apprentice",
+        hours:{}
+      },
+      {
+        employee_id:"E003",
+        calendar_date:"08/12/2025",
+        shift_type:"scheduled",
+        crew:"B",
+        district:"South",
+        job_class:"Apprentice",
+        hours:{ "05":1,"06":1,"07":1,"08":1,"09":1,"10":1,"11":1,"12":1 }
+      }
+    ];
+    const lines = [header.join(",")];
+    sampleRows.forEach(row=>{
+      const cells = [row.employee_id, row.calendar_date];
+      hourCols.forEach(col=>{
+        const val = row.hours && Object.prototype.hasOwnProperty.call(row.hours, col) ? row.hours[col] : "";
+        cells.push(val === undefined ? "" : val);
+      });
+      cells.push(row.shift_type);
+      cells.push(row.crew);
+      cells.push(row.district);
+      cells.push(row.job_class);
+      lines.push(cells.join(","));
+    });
+    rawRows = parseCSV(lines.join("\n"));
     afterLoad();
-    document.querySelector("#loadStatus").textContent = `Loaded demo sample (${rawRows.length} rows).`;
+    document.querySelector("#loadStatus").textContent = `Loaded demo sample (${rawRows.length} rows; hourly grid).`;
   });
 
   document.querySelector("#applyBtn").addEventListener("click", ()=> recomputeAll());
@@ -864,16 +1003,19 @@ E004,2025-08-16 07:00,2025-08-16 15:30,scheduled,B,South,Apprentice`;
   });
 
   function afterLoad(){
+    const normalized = normalizeRows(rawRows);
     // optional columns for availability filter
     const sample = rawRows[0] || {};
-    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","Employee","Start","End","start","end","type"]);
+    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","Employee","Start","End","start","end","type","calendar_date","calendarDate","CalendarDate","date"]);
+    HOUR_COLUMNS.forEach(col=> known.add(col));
     optionalCols = Object.keys(sample).filter(k=> !known.has(k));
     const selAvail = document.querySelector("#availabilityColumn"); selAvail.innerHTML = '<option value="">(none)</option>';
     optionalCols.forEach(c=>{
       const opt = document.createElement("option"); opt.value=c; opt.textContent=c; selAvail.appendChild(opt);
     });
     // employees list
-    employees = Array.from(new Set(rawRows.map(r=> (r.employee_id ?? r.Employee ?? "").toString()))).sort();
+    const empSet = new Set(normalized.map(s=> s.employee_id));
+    employees = Array.from(empSet).filter(Boolean).sort();
     const empSel = document.querySelector("#employeeSelect"); empSel.innerHTML = "";
     employees.forEach(e=>{
       const opt = document.createElement("option"); opt.value=e; opt.textContent=e; empSel.appendChild(opt);
@@ -882,11 +1024,14 @@ E004,2025-08-16 07:00,2025-08-16 15:30,scheduled,B,South,Apprentice`;
     employees.slice(0, Math.min(3, employees.length)).forEach((e, i)=> { empSel.options[i].selected = true; });
 
     // default date range from data
-    const dates = rawRows.map(r=> parseMaybe(r.start_datetime ?? r.start ?? r.Start ?? null)).filter(Boolean).sort((a,b)=>a-b);
+    const dates = normalized.map(s=> s.start).filter(Boolean).sort((a,b)=>a-b);
     if (dates.length){
       const s = dates[0], e = dates[dates.length-1];
       document.querySelector("#dateStart").value = s.toISOString().slice(0,10);
       document.querySelector("#dateEnd").value   = e.toISOString().slice(0,10);
+    } else {
+      document.querySelector("#dateStart").value = "";
+      document.querySelector("#dateEnd").value = "";
     }
     recomputeAll();
   }
