@@ -89,6 +89,23 @@ HTML = r"""<!DOCTYPE html>
   /* Multi-select styling */
   #employeeSelect{ min-height: 140px; }
   .emp-buttons{ display:flex; gap:8px; }
+  .dow-picker{ display:flex; gap:6px; flex-wrap:wrap; }
+  .dow-picker button{
+    flex:1 1 32px; padding:6px 10px; border-radius:8px; border:1px solid var(--grid);
+    background:#0c0f14; color:var(--text); font-size:12px; cursor:pointer;
+  }
+  .dow-picker button.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .calendar-grid{ display:flex; gap:16px; flex-wrap:wrap; }
+  .calendar-month{ flex:1 1 240px; min-width:220px; border:1px solid var(--grid); border-radius:10px; padding:10px; background:#11141a; }
+  .calendar-month-title{ font-size:13px; font-weight:600; margin-bottom:6px; }
+  .calendar-month table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .calendar-month th{ color:var(--muted); text-align:center; padding-bottom:4px; }
+  .calendar-cell{ border:1px solid var(--grid); height:54px; vertical-align:top; padding:4px; position:relative; }
+  .calendar-cell.empty{ background:rgba(255,255,255,0.01); border-style:dashed; opacity:0.3; }
+  .calendar-cell .day-num{ font-size:11px; color:var(--muted); }
+  .calendar-cell .badge{ margin-top:4px; display:inline-block; padding:2px 6px; border-radius:999px; font-size:11px; border:1px solid var(--grid); color:var(--muted); }
+  .calendar-cell.has-db{ background:rgba(255,93,93,0.12); border-color:rgba(255,93,93,0.5); }
+  .calendar-cell.has-db .badge{ border-color:rgba(255,93,93,0.4); color:var(--bad); }
 </style>
 </head>
 <body>
@@ -150,6 +167,20 @@ HTML = r"""<!DOCTYPE html>
         <div class="field">
           <label>Date range — end</label>
           <input type="date" id="dateEnd" />
+        </div>
+
+        <div class="field wide">
+          <label>Days of week</label>
+          <div id="dowPicker" class="dow-picker">
+            <button type="button" data-day="1" class="active" title="Monday">M</button>
+            <button type="button" data-day="2" class="active" title="Tuesday">T</button>
+            <button type="button" data-day="3" class="active" title="Wednesday">W</button>
+            <button type="button" data-day="4" class="active" title="Thursday">Th</button>
+            <button type="button" data-day="5" class="active" title="Friday">F</button>
+            <button type="button" data-day="6" class="active" title="Saturday">Sa</button>
+            <button type="button" data-day="0" class="active" title="Sunday">Su</button>
+          </div>
+          <div class="hint">Only the selected days render in the overlay, flagged list, and calendar.</div>
         </div>
 
         <div class="field wide">
@@ -249,6 +280,14 @@ HTML = r"""<!DOCTYPE html>
     <div class="spacer"></div>
 
     <div class="card">
+      <h2>6) Calendar view (selected employees)</h2>
+      <div id="calendarHint" class="note">Select employees to visualize double-bubble days.</div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="card">
       <h2>Assumptions & Notes</h2>
       <ul class="note">
         <li>Double‑bubble eligibility is attributed to the <em>current shift</em> only when its immediately prior shift was overtime (OT1/OT2/call-in) <em>and</em> the rest gap from that shift’s end to this shift’s start is below the threshold.</li>
@@ -284,6 +323,9 @@ HTML = r"""<!DOCTYPE html>
   const hoursBetween = (a,b) => (b - a) / 36e5;
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes(), d.getSeconds());
   const HOUR_COLUMNS = Array.from({length:24}, (_,i)=> pad(i));
+  const DEFAULT_DAYS = [0,1,2,3,4,5,6];
+  const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DOW_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const SHIFT_TIME_ALIASES = {
     "reg": "reg",
     "regular": "reg",
@@ -431,6 +473,7 @@ HTML = r"""<!DOCTYPE html>
   // ---------- Core state ----------
   let rawRows = [];
   let shifts = [];
+  let flaggedShifts = [];
   let employees = [];
   let optionalCols = [];
   let params = {
@@ -440,7 +483,8 @@ HTML = r"""<!DOCTYPE html>
     baseRate: 100,
     dbMultiplier: 2,
     dateStart: null,
-    dateEnd: null
+    dateEnd: null,
+    daysOfWeek: new Set(DEFAULT_DAYS)
   };
 
   // ---------- Loading ----------
@@ -509,6 +553,12 @@ HTML = r"""<!DOCTYPE html>
       }
       return true;
     });
+  }
+
+  function applyDayOfWeekFilter(arr){
+    const days = params.daysOfWeek;
+    if (!days || days.size === 0 || days.size === DEFAULT_DAYS.length) return arr;
+    return arr.filter(s=> days.has(s.start.getDay()));
   }
 
   function computeRestAndFlags(arr){
@@ -811,11 +861,33 @@ HTML = r"""<!DOCTYPE html>
     list.appendChild(ul);
   }
 
-  function renderFlagTable(flagged){
-    document.querySelector("#flagCount").textContent = flagged.length;
+  function renderFlagTable(){
     const tbody = document.querySelector("#flagTable tbody");
     tbody.innerHTML = "";
-    for (const f of flagged){
+    const selected = getSelectedEmployees();
+    const selectedSet = new Set(selected);
+    if (!selected.length){
+      document.querySelector("#flagCount").textContent = "0";
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 10;
+      td.innerHTML = '<div class="note">Select one or more employees to see flagged incidents.</div>';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    const filtered = flaggedShifts.filter(f=> selectedSet.has(f.employee_id));
+    document.querySelector("#flagCount").textContent = filtered.length;
+    if (!filtered.length){
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 10;
+      td.innerHTML = '<div class="note">No double-bubble incidents for the selected employees.</div>';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    for (const f of filtered){
       const tr = document.createElement("tr");
       const dur = hoursBetween(f.start, f.end);
       const availNames = f._alternates?.slice(0,6).map(a=>a.employee_id).join(", ");
@@ -837,8 +909,103 @@ HTML = r"""<!DOCTYPE html>
     makeTableSortable("flagTable");
   }
 
+  function renderCalendarView(){
+    const container = document.querySelector("#calendarGrid");
+    const hint = document.querySelector("#calendarHint");
+    if (!container || !hint) return;
+    container.innerHTML = "";
+    const selected = getSelectedEmployees();
+    if (!selected.length){
+      hint.textContent = "Select employees to visualize double-bubble days.";
+      return;
+    }
+    const selectedSet = new Set(selected);
+    const relevant = shifts.filter(s=> selectedSet.has(s.employee_id));
+    if (!relevant.length){
+      hint.textContent = "No shifts in range for the selected employees.";
+      return;
+    }
+    hint.textContent = "Highlighted days show double-bubble events for the selected employees.";
+    const months = buildCalendarData(relevant);
+    if (!months.length){
+      container.innerHTML = '<div class="note">No calendar data to display.</div>';
+      return;
+    }
+    months.forEach(monthData=>{
+      const monthEl = document.createElement("div");
+      monthEl.className = "calendar-month";
+      monthEl.innerHTML = buildMonthTable(monthData);
+      container.appendChild(monthEl);
+    });
+  }
+
+  function buildCalendarData(list){
+    const byMonth = new Map();
+    for (const s of list){
+      if (!s.start) continue;
+      const year = s.start.getFullYear();
+      const month = s.start.getMonth();
+      const day = s.start.getDate();
+      const key = `${year}-${month}`;
+      if (!byMonth.has(key)) byMonth.set(key, {year, month, days:new Map()});
+      const monthEntry = byMonth.get(key);
+      if (!monthEntry.days.has(day)){
+        monthEntry.days.set(day, {double:false, employees:new Set(), dbEmployees:new Set(), shifts:[]});
+      }
+      const info = monthEntry.days.get(day);
+      info.employees.add(s.employee_id);
+      if (s.double_bubble){
+        info.double = true;
+        info.dbEmployees.add(s.employee_id);
+      }
+      info.shifts.push(s);
+    }
+    return Array.from(byMonth.values()).sort((a,b)=> (a.year - b.year) || (a.month - b.month));
+  }
+
+  function buildMonthTable(data){
+    const firstDow = new Date(data.year, data.month, 1).getDay();
+    const daysInMonth = new Date(data.year, data.month+1, 0).getDate();
+    const header = DOW_LABELS.map(d=> `<th>${d}</th>`).join("");
+    let rows = "";
+    let day = 1;
+    for (let week=0; week<6 && day <= daysInMonth; week++){
+      let row = "<tr>";
+      for (let dow=0; dow<7; dow++){
+        if ((week===0 && dow < firstDow) || day > daysInMonth){
+          row += '<td class="calendar-cell empty"></td>';
+        } else {
+          const info = data.days.get(day);
+          const classes = ["calendar-cell"];
+          if (info && info.double) classes.push("has-db");
+          let badge = "";
+          if (info){
+            badge = info.double
+              ? `<div class="badge db">${info.dbEmployees.size} DB</div>`
+              : `<div class="badge">${info.employees.size} shift${info.employees.size>1?"s":""}</div>`;
+          }
+          const tooltip = info ? `Employees: ${Array.from(info.employees).join(", ")}` : "";
+          const safeTitle = tooltip.replace(/"/g, "&quot;");
+          row += `<td class="${classes.join(" ")}"${tooltip?` title="${safeTitle}"`:""}><div class="day-num">${day}</div>${badge}</td>`;
+          day++;
+        }
+      }
+      row += "</tr>";
+      rows += row;
+    }
+    return `
+      <div class="calendar-month-title">${MONTH_NAMES[data.month]} ${data.year}</div>
+      <table>
+        <thead><tr>${header}</tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
   function makeTableSortable(tableId){
     const table = document.getElementById(tableId);
+    if (!table || table.dataset.sortableInit === "1") return;
+    table.dataset.sortableInit = "1";
     const ths = table.querySelectorAll("th");
     let sortKey = null, asc = true;
     ths.forEach(th => {
@@ -899,6 +1066,20 @@ HTML = r"""<!DOCTYPE html>
     const a = document.createElement("a");
     a.href = url; a.download = "double_bubble_flagged.csv"; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  function initDayOfWeekPicker(){
+    const buttons = Array.from(document.querySelectorAll("#dowPicker button"));
+    if (!buttons.length) return;
+    buttons.forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        btn.classList.toggle("active");
+        if (!document.querySelector("#dowPicker button.active")){
+          buttons.forEach(b=> b.classList.add("active"));
+        }
+        recomputeAll();
+      });
+    });
   }
 
   function saveSvgAsPng(svgId){
@@ -1064,21 +1245,42 @@ HTML = r"""<!DOCTYPE html>
   });
 
   document.querySelector("#applyBtn").addEventListener("click", ()=> recomputeAll());
-  document.querySelector("#employeeSelect").addEventListener("change", ()=> renderOverlayForEmployees(getSelectedEmployees()));
+  document.querySelector("#employeeSelect").addEventListener("change", ()=>{
+    const selected = getSelectedEmployees();
+    renderOverlayForEmployees(selected);
+    renderFlagTable();
+    renderCalendarView();
+  });
   document.querySelector("#exportCsvBtn").addEventListener("click", ()=> {
-    const flagged = shifts.filter(s=> s.double_bubble);
+    const selected = getSelectedEmployees();
+    if (!selected.length){
+      alert("Select at least one employee before exporting flagged incidents.");
+      return;
+    }
+    const selectedSet = new Set(selected);
+    const flagged = flaggedShifts.filter(s=> selectedSet.has(s.employee_id));
+    if (!flagged.length){
+      alert("No flagged incidents for the selected employees.");
+      return;
+    }
     exportFlaggedCSV(flagged);
   });
   document.querySelector("#savePngBtn").addEventListener("click", ()=> saveSvgAsPng("overlayChart"));
   document.querySelector("#selectAllEmpBtn").addEventListener("click", ()=> {
     const sel = document.querySelector("#employeeSelect");
     Array.from(sel.options).forEach(o=> o.selected = true);
-    renderOverlayForEmployees(getSelectedEmployees());
+    const selected = getSelectedEmployees();
+    renderOverlayForEmployees(selected);
+    renderFlagTable();
+    renderCalendarView();
   });
   document.querySelector("#clearEmpBtn").addEventListener("click", ()=> {
     const sel = document.querySelector("#employeeSelect");
     Array.from(sel.options).forEach(o=> o.selected = false);
-    renderOverlayForEmployees(getSelectedEmployees());
+    const selected = getSelectedEmployees();
+    renderOverlayForEmployees(selected);
+    renderFlagTable();
+    renderCalendarView();
   });
 
   function afterLoad(){
@@ -1126,6 +1328,9 @@ HTML = r"""<!DOCTYPE html>
     const dS = document.querySelector("#dateStart").value ? new Date(document.querySelector("#dateStart").value + "T00:00:00") : null;
     const dE = document.querySelector("#dateEnd").value ? new Date(document.querySelector("#dateEnd").value + "T00:00:00") : null;
     params.dateStart = dS; params.dateEnd = dE;
+    const dayButtons = document.querySelectorAll("#dowPicker button");
+    const activeDays = Array.from(dayButtons).filter(btn=> btn.classList.contains("active")).map(btn=> parseInt(btn.dataset.day, 10));
+    params.daysOfWeek = new Set((activeDays.length ? activeDays : DEFAULT_DAYS));
   }
 
   function recomputeAll(){
@@ -1138,15 +1343,17 @@ HTML = r"""<!DOCTYPE html>
     const annotated = computeRestAndFlags(base);
     // 3) Date filter (view)
     const ranged = applyDateFilter(annotated);
-    let computed = ranged;
-    // 4) Baseline
+    // 4) Day-of-week filter
+    const dowFiltered = applyDayOfWeekFilter(ranged);
+    let computed = dowFiltered;
+    // 5) Baseline
     const bl = perEmployeeBaseline(computed);
-    // 5) Deviations
+    // 6) Deviations
     computed = computeDeviations(computed, bl);
-    // 6) Save global
+    // 7) Save global
     shifts = computed;
 
-    // 7) Alternates for flagged shifts
+    // 8) Alternates for flagged shifts
     const idx = buildAvailabilityIndex(computed);
     const flagged = computed.filter(s=> s.double_bubble);
     for (const s of flagged){
@@ -1158,11 +1365,16 @@ HTML = r"""<!DOCTYPE html>
       s._estSavings = alts.length>0 ? (premium - normal) * hours : 0;
     }
 
+    flaggedShifts = flagged;
+
     // Render
     renderOverlayForEmployees(getSelectedEmployees());
     renderSummary();
-    renderFlagTable(flagged);
+    renderFlagTable();
+    renderCalendarView();
   }
+
+  initDayOfWeekPicker();
 
   // Init
   document.querySelector("#loadStatus").textContent = "Awaiting CSV… Upload a file or paste a URL.";
