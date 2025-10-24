@@ -80,11 +80,11 @@
   .emp-buttons{ display:flex; gap:8px; }
   .help-tip{
     display:inline-flex; align-items:center; justify-content:center;
-    width:16px; height:16px; border-radius:50%;
-    border:1px solid var(--grid); font-size:11px; margin-left:4px;
-    cursor:help; color:var(--muted); background:#0c0f14;
+    width:18px; height:18px; border-radius:50%;
+    border:1px solid rgba(74,163,255,0.8); font-size:11px; margin-left:6px;
+    cursor:help; color:var(--accent); background:rgba(74,163,255,0.12); font-weight:600;
   }
-  .help-tip:hover{ border-color:var(--accent); color:var(--accent); }
+  .help-tip:hover{ border-color:var(--accent); background:rgba(74,163,255,0.2); }
   .dow-picker{ display:flex; gap:6px; flex-wrap:wrap; }
   .dow-picker button{
     flex:1 1 32px; padding:6px 10px; border-radius:8px; border:1px solid var(--grid);
@@ -226,7 +226,10 @@
       <div class="card viz">
         <h2>3) Overlay timeline (stacked 0–24h rows)</h2>
         <div id="chartTitle" class="note">Select one or more employees to render.</div>
-        <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="overlay-wrap">
+          <div id="overlayLabels" class="overlay-labels"></div>
+          <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
         <div class="foot">Each row is an employee; each rectangle is a shift segment (cross‑midnight split). Hover for details. Use Save to export PNG.</div>
         <div class="spacer"></div>
         <div class="row">
@@ -681,6 +684,7 @@
   }
 
   function renderOverlayForEmployees(empIds){
+    const labelsBox = document.getElementById("overlayLabels");
     const svg = document.getElementById("overlayChart");
     const N = empIds.length;
     const W = 1100;
@@ -696,6 +700,23 @@
 
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     svg.appendChild(g);
+
+    if (labelsBox){
+      labelsBox.innerHTML = "";
+      if (!N){
+        const placeholder = document.createElement("div");
+        placeholder.className = "overlay-label placeholder";
+        placeholder.textContent = "Select employees to render.";
+        labelsBox.appendChild(placeholder);
+      } else {
+        empIds.forEach(empId=>{
+          const div = document.createElement("div");
+          div.className = "overlay-label";
+          div.textContent = empId;
+          labelsBox.appendChild(div);
+        });
+      }
+    }
 
     const x = (h) => padL + (h/24) * (W - padL - padR);
     const yRowTop = (i) => padT + i*(rowH + gap);
@@ -753,16 +774,6 @@
 
     empIds.forEach((empId, idx) => {
       const top = yRowTop(idx), bot = yRowBot(idx);
-      // row label
-      const label = document.createElementNS("http://www.w3.org/2000/svg","text");
-      label.setAttribute("x", 10);
-      label.setAttribute("y", top + 14);
-      label.setAttribute("text-anchor","start");
-      label.setAttribute("fill", "#e7e9ee");
-      label.setAttribute("font-size","12");
-      label.textContent = empId;
-      g.appendChild(label);
-
       // subtle row background
       const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
       bg.setAttribute("x", padL); bg.setAttribute("y", top+2);
