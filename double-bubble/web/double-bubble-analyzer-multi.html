@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -93,7 +92,7 @@
         <div class="field wide">
           <label>Upload CSV (preferred hourly grid: <span class="kbd">employee_id,calendar_date,00..23[,shift_type,...]</span>; legacy <span class="kbd">start_datetime,end_datetime</span> rows still work)</label>
           <input type="file" id="fileInput" accept=".csv" />
-          <div class="hint">Each row should be a single employee + date. Hour columns hold 0–1 hours for that slot (e.g., 0.5 = 30m). Legacy start/end rows or ISO timestamps remain supported.</div>
+          <div class="hint">Each row should be a single employee + date. Hour columns hold 0–1 hours for that slot (e.g., 0.5 = 30m). Legacy start/end rows or ISO timestamps remain supported. A <span class="kbd">shift_time</span> code (REG, CHOL, OT1, OT2, PLVE, PTO) is required.</div>
         </div>
         <div class="field wide">
           <label>CSV URL (optional)</label>
@@ -241,7 +240,7 @@
     <div class="card">
       <h2>Assumptions & Notes</h2>
       <ul class="note">
-        <li>Double‑bubble eligibility is attributed to the <em>current shift</em> if the rest gap from the previous shift’s end to this shift’s start is below the threshold.</li>
+        <li>Double‑bubble eligibility is attributed to the <em>current shift</em> only when its immediately prior shift was overtime (OT1/OT2/call-in) <em>and</em> the rest gap from that shift’s end to this shift’s start is below the threshold.</li>
         <li>“Availability” for alternates: not on a concurrent shift and their rest gap before the flagged shift is ≥ threshold; optionally must match on the chosen column (crew/district/job_class).</li>
         <li>“Normal shift” baseline: median start/end per employee. If “scheduled” has no coverage, falls back to all shifts.</li>
         <li>Cost savings estimate assumes the flagged shift paid at <span class="kbd">base_rate × multiplier</span> could have been covered at <span class="kbd">base_rate</span>.</li>
@@ -274,11 +273,52 @@
   const hoursBetween = (a,b) => (b - a) / 36e5;
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes(), d.getSeconds());
   const HOUR_COLUMNS = Array.from({length:24}, (_,i)=> pad(i));
-  const SCHEDULED_TYPES = new Set(["scheduled","reg","regular"]);
-  const CALLIN_TYPES = new Set(["call-in","callin","ot2","ot"]);
-  const normalizeType = (value) => (value ?? "").toString().trim().toLowerCase();
-  const isScheduledType = (value) => SCHEDULED_TYPES.has(normalizeType(value));
-  const isCallInType = (value) => CALLIN_TYPES.has(normalizeType(value));
+  const SHIFT_TIME_ALIASES = {
+    "reg": "reg",
+    "regular": "reg",
+    "scheduled": "reg",
+    "chol": "chol",
+    "company holiday": "chol",
+    "ot2": "ot2",
+    "ot": "ot2",
+    "overtime 2x": "ot2",
+    "call-in": "call-in",
+    "callin": "call-in",
+    "ot1": "ot1",
+    "overtime 1.5x": "ot1",
+    "plve": "plve",
+    "unpaid leave": "plve",
+    "pto": "pto",
+    "paid time off": "pto"
+  };
+  const SHIFT_TIME_DESCRIPTIONS = {
+    "reg": "REG — regular time",
+    "chol": "CHOL — company holiday",
+    "ot2": "OT2 — overtime 2×",
+    "ot1": "OT1 — overtime 1.5×",
+    "plve": "PLVE — unpaid leave",
+    "pto": "PTO — paid time off",
+    "call-in": "Call-in"
+  };
+  const canonicalShiftType = (value) => {
+    const norm = (value ?? "").toString().trim().toLowerCase();
+    if (!norm) return "";
+    return SHIFT_TIME_ALIASES[norm] || norm;
+  };
+  const SHIFT_TIME_FIELDS = ["shift_time","shiftTime","SHIFT_TIME"];
+  const getShiftTypeFromRow = (row) => {
+    for (const key of SHIFT_TIME_FIELDS){
+      if (row && row[key] != null && row[key] !== "") return canonicalShiftType(row[key]);
+    }
+    return "";
+  };
+  const describeShiftType = (value) => SHIFT_TIME_DESCRIPTIONS[canonicalShiftType(value)] || (value ? value.toString() : "—");
+  const SCHEDULED_TYPES = new Set(["reg","regular","scheduled","chol"]);
+  const CALLIN_TYPES = new Set(["call-in","callin","ot2","ot1","ot"]);
+  const OVERTIME_TYPES = new Set(["ot1","ot2","call-in","callin","ot"]);
+  const isScheduledType = (value) => SCHEDULED_TYPES.has(canonicalShiftType(value));
+  const isCallInType = (value) => CALLIN_TYPES.has(canonicalShiftType(value));
+  const isOvertimeType = (value) => OVERTIME_TYPES.has(canonicalShiftType(value));
 
   function parseCalendarDate(value){
     if (value == null) return null;
@@ -304,14 +344,18 @@
     return HOUR_COLUMNS.some(col => Object.prototype.hasOwnProperty.call(row, col));
   }
 
-  function expandHourlyRow(row){
+  function expandHourlyRow(row, stats){
     if (!isHourlyRow(row)) return null;
     const emp = (row.employee_id ?? row.Employee ?? row.emp ?? "").toString().trim();
     const dateRaw = row.calendar_date ?? row.calendarDate ?? row.CalendarDate ?? row.date ?? "";
     const day = parseCalendarDate(dateRaw);
+    const typ = getShiftTypeFromRow(row);
     if (!emp || !day) return [];
+    if (!typ){
+      if (stats) stats.missingShiftTime = (stats.missingShiftTime || 0) + 1;
+      return [];
+    }
     const baseRaw = {...row};
-    const typ = normalizeType(row.shift_type ?? row.type ?? row.Type ?? "") || "scheduled";
     const segs = [];
     let current = null;
     for (const col of HOUR_COLUMNS){
@@ -411,10 +455,10 @@
   }
 
   // ---------- Transformations ----------
-  function normalizeRows(rows){
+  function normalizeRows(rows, stats=null){
     const out = [];
     for (const r of rows){
-      const hourly = expandHourlyRow(r);
+      const hourly = expandHourlyRow(r, stats);
       if (hourly){
         out.push(...hourly);
         continue;
@@ -422,7 +466,11 @@
       const emp = (r.employee_id ?? r.Employee ?? r.emp ?? "").toString().trim();
       const st = parseMaybe(r.start_datetime ?? r.start ?? r.start_time ?? r.Start ?? "");
       const en = parseMaybe(r.end_datetime ?? r.end ?? r.end_time ?? r.End ?? "");
-      const typ = normalizeType(r.shift_type ?? r.type ?? r.Type ?? "") || "scheduled";
+      const typ = getShiftTypeFromRow(r);
+      if (!typ){
+        if (stats) stats.missingShiftTime = (stats.missingShiftTime || 0) + 1;
+        continue;
+      }
       if (!emp || !st || !en) continue;
       if (en < st){
         const en2 = addDays(en, 1);
@@ -457,11 +505,12 @@
     let prevByEmp = new Map();
     for (const s of list){
       const key = s.employee_id;
-      const prev = prevByEmp.get(key);
-      s.prev_end = prev || null;
-      s.rest_gap_h = prev ? hoursBetween(prev, s.start) : null;
-      s.double_bubble = (s.rest_gap_h != null) ? (s.rest_gap_h < params.restThreshold) : false;
-      prevByEmp.set(key, s.end);
+      const prev = prevByEmp.get(key) || null;
+      s.prev_end = prev ? prev.end : null;
+      s.rest_gap_h = prev ? hoursBetween(prev.end, s.start) : null;
+      const prevWasOT = prev ? isOvertimeType(prev.shift_type) : false;
+      s.double_bubble = (s.rest_gap_h != null) ? (prevWasOT && s.rest_gap_h < params.restThreshold) : false;
+      prevByEmp.set(key, s);
     }
     return list;
   }
@@ -693,8 +742,10 @@
 
         const durH = hoursBetween(s.start, s.end);
         const callin = isCallin;
+        const shiftLabel = describeShiftType(s.shift_type);
         const tip = `
           <div><strong>${s.employee_id}</strong></div>
+          <div>Shift type: ${shiftLabel}</div>
           <div>${toLocalISO(s.start)} → ${toLocalISO(s.end)} (${fmt2(durH)}h)</div>
           <div>Call-in: <span class="${callin?'pill ok':'pill'}">${callin?'Yes':'No'}</span> &nbsp; Double-bubble: <span class="${s.double_bubble?'pill bad':'pill'}">${s.double_bubble?'Yes':'No'}</span></div>
           <div>Rest before: ${s.rest_gap_h==null?'-':fmt2(s.rest_gap_h)+'h'} &nbsp; Deviation: ${s.deviation?fmt2(s.dev_hours)+'h':'No'}</div>
@@ -863,14 +914,22 @@
   }
 
   // ---------- Wiring ----------
+  function formatLoadStatus(prefix, info){
+    const missing = info?.stats?.missingShiftTime || 0;
+    if (missing){
+      return `${prefix} Skipped ${missing} row${missing===1?"":"s"} missing shift_time.`;
+    }
+    return prefix;
+  }
+
   document.querySelector("#fileInput").addEventListener("change", async (e)=>{
     const f = e.target.files[0];
     if (!f) return;
     try{
       document.querySelector("#loadStatus").textContent = "Parsing CSV…";
       rawRows = await loadFromFile(f);
-      afterLoad();
-      document.querySelector("#loadStatus").textContent = `Loaded ${rawRows.length} rows from file.`;
+      const info = afterLoad();
+      document.querySelector("#loadStatus").textContent = formatLoadStatus(`Loaded ${rawRows.length} rows from file.`, info);
     }catch(err){
       console.error(err);
       document.querySelector("#loadStatus").textContent = "Error loading file: " + err.message;
@@ -882,8 +941,8 @@
     try{
       document.querySelector("#loadStatus").textContent = "Fetching CSV…";
       rawRows = await loadFromUrl(url);
-      afterLoad();
-      document.querySelector("#loadStatus").textContent = `Loaded ${rawRows.length} rows from URL.`;
+      const info = afterLoad();
+      document.querySelector("#loadStatus").textContent = formatLoadStatus(`Loaded ${rawRows.length} rows from URL.`, info);
     }catch(err){
       console.error(err);
       document.querySelector("#loadStatus").textContent = "Error fetching: " + err.message;
@@ -891,11 +950,12 @@
   });
   document.querySelector("#loadSampleBtn").addEventListener("click", ()=>{
     const hourCols = HOUR_COLUMNS.slice();
-    const header = ["employee_id","calendar_date", ...hourCols, "shift_type","crew","district","job_class"];
+    const header = ["employee_id","calendar_date", ...hourCols, "shift_time","shift_type","crew","district","job_class"];
     const sampleRows = [
       {
         employee_id:"E001",
         calendar_date:"08/11/2025",
+        shift_time:"REG",
         shift_type:"scheduled",
         crew:"A",
         district:"North",
@@ -905,6 +965,7 @@
       {
         employee_id:"E001",
         calendar_date:"08/12/2025",
+        shift_time:"REG",
         shift_type:"scheduled",
         crew:"A",
         district:"North",
@@ -914,6 +975,7 @@
       {
         employee_id:"E001",
         calendar_date:"08/13/2025",
+        shift_time:"OT2",
         shift_type:"call-in",
         crew:"A",
         district:"North",
@@ -923,6 +985,7 @@
       {
         employee_id:"E002",
         calendar_date:"08/11/2025",
+        shift_time:"REG",
         shift_type:"reg",
         crew:"A",
         district:"North",
@@ -932,6 +995,7 @@
       {
         employee_id:"E002",
         calendar_date:"08/12/2025",
+        shift_time:"REG",
         shift_type:"reg",
         crew:"A",
         district:"North",
@@ -941,6 +1005,7 @@
       {
         employee_id:"E002",
         calendar_date:"08/13/2025",
+        shift_time:"OT2",
         shift_type:"ot2",
         crew:"A",
         district:"North",
@@ -950,6 +1015,7 @@
       {
         employee_id:"E003",
         calendar_date:"08/11/2025",
+        shift_time:"PTO",
         shift_type:"pto",
         crew:"B",
         district:"South",
@@ -959,6 +1025,7 @@
       {
         employee_id:"E003",
         calendar_date:"08/12/2025",
+        shift_time:"REG",
         shift_type:"scheduled",
         crew:"B",
         district:"South",
@@ -973,15 +1040,16 @@
         const val = row.hours && Object.prototype.hasOwnProperty.call(row.hours, col) ? row.hours[col] : "";
         cells.push(val === undefined ? "" : val);
       });
-      cells.push(row.shift_type);
+      cells.push(row.shift_time || "");
+      cells.push(row.shift_type || "");
       cells.push(row.crew);
       cells.push(row.district);
       cells.push(row.job_class);
       lines.push(cells.join(","));
     });
     rawRows = parseCSV(lines.join("\n"));
-    afterLoad();
-    document.querySelector("#loadStatus").textContent = `Loaded demo sample (${rawRows.length} rows; hourly grid).`;
+    const info = afterLoad();
+    document.querySelector("#loadStatus").textContent = formatLoadStatus(`Loaded demo sample (${rawRows.length} rows; hourly grid).`, info);
   });
 
   document.querySelector("#applyBtn").addEventListener("click", ()=> recomputeAll());
@@ -1003,10 +1071,11 @@
   });
 
   function afterLoad(){
-    const normalized = normalizeRows(rawRows);
+    const stats = {missingShiftTime:0};
+    const normalized = normalizeRows(rawRows, stats);
     // optional columns for availability filter
     const sample = rawRows[0] || {};
-    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","Employee","Start","End","start","end","type","calendar_date","calendarDate","CalendarDate","date"]);
+    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","shift_time","SHIFT_TIME","shiftTime","Employee","Start","End","start","end","type","calendar_date","calendarDate","CalendarDate","date"]);
     HOUR_COLUMNS.forEach(col=> known.add(col));
     optionalCols = Object.keys(sample).filter(k=> !known.has(k));
     const selAvail = document.querySelector("#availabilityColumn"); selAvail.innerHTML = '<option value="">(none)</option>';
@@ -1034,6 +1103,7 @@
       document.querySelector("#dateEnd").value = "";
     }
     recomputeAll();
+    return {stats, normalizedCount: normalized.length};
   }
 
   function pullParams(){
@@ -1053,10 +1123,11 @@
 
     // 1) Normalize
     const base = normalizeRows(rawRows);
-    // 2) Date filter
-    const ranged = applyDateFilter(base);
-    // 3) Rest + flags
-    let computed = computeRestAndFlags(ranged);
+    // 2) Rest + flags (use full history so first in-range shift still gets prior context)
+    const annotated = computeRestAndFlags(base);
+    // 3) Date filter (view)
+    const ranged = applyDateFilter(annotated);
+    let computed = ranged;
     // 4) Baseline
     const bl = perEmployeeBaseline(computed);
     // 5) Deviations
