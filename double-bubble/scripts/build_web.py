@@ -237,7 +237,10 @@ HTML = r"""<!DOCTYPE html>
       <div class="card viz">
         <h2>3) Overlay timeline (stacked 0–24h rows)</h2>
         <div id="chartTitle" class="note">Select one or more employees to render.</div>
-        <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="overlay-wrap">
+          <div id="overlayLabels" class="overlay-labels"></div>
+          <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
         <div class="foot">Each row is an employee; each rectangle is a shift segment (cross‑midnight split). Hover for details. Use Save to export PNG.</div>
         <div class="spacer"></div>
         <div class="row">
