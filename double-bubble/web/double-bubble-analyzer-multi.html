@@ -102,6 +102,15 @@
   .calendar-cell .badge{ margin-top:4px; display:inline-block; padding:2px 6px; border-radius:999px; font-size:11px; border:1px solid var(--grid); color:var(--muted); }
   .calendar-cell.has-db{ background:rgba(255,93,93,0.12); border-color:rgba(255,93,93,0.5); }
   .calendar-cell.has-db .badge{ border-color:rgba(255,93,93,0.4); color:var(--bad); }
+  .overlay-header{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .overlay-header button{ padding:6px 10px; border-radius:8px; border:1px solid var(--grid); background:#0c0f14; color:var(--text); cursor:pointer; }
+  .overlay-scroll{ display:flex; gap:16px; align-items:flex-start; max-height:520px; overflow:auto; }
+  .overlay-chart-shell{ flex:1; min-width:0; }
+  .overlay-chart-shell svg{ width:100%; }
+  .overlay-labels{ min-width:210px; display:flex; flex-direction:column; gap:10px; padding-top:18px; }
+  .overlay-label{ min-height:90px; padding:0 8px; display:flex; align-items:center; font-size:14px; font-weight:500; color:var(--text); }
+  .overlay-label small{ color:var(--muted); font-size:11px; margin-left:8px; font-weight:400; }
+  .overlay-label.placeholder{ color:var(--muted); font-style:italic; }
 </style>
 </head>
 <body>
@@ -195,6 +204,13 @@
           <div class="hint">If set, alternates must match the selected employee on this column (e.g., same crew or district).</div>
         </div>
 
+        <div class="field wide">
+          <label>Cost centers (required field in data)</label>
+          <input type="search" id="costCenterSearch" placeholder="Search cost centers…" />
+          <select id="costCenterSelect" multiple></select>
+          <div class="hint">Hold Ctrl/Cmd or Shift to multi-select. Leave empty to include all cost centers.</div>
+        </div>
+
         <div class="field">
           <label>Base rate ($/hr)</label>
           <input type="number" id="baseRate" value="100" min="0" step="1" />
@@ -225,10 +241,15 @@
     <div class="split">
       <div class="card viz">
         <h2>3) Overlay timeline (stacked 0–24h rows)</h2>
-        <div id="chartTitle" class="note">Select one or more employees to render.</div>
-        <div class="overlay-wrap">
+        <div class="overlay-header">
+          <div id="chartTitle" class="note">Select one or more employees to render.</div>
+          <button id="sortOverlayBtn" type="button">Sort A→Z</button>
+        </div>
+        <div class="overlay-wrap overlay-scroll">
           <div id="overlayLabels" class="overlay-labels"></div>
-          <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="overlay-chart-shell">
+            <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
         </div>
         <div class="foot">Each row is an employee; each rectangle is a shift segment (cross‑midnight split). Hover for details. Use Save to export PNG.</div>
         <div class="spacer"></div>
@@ -371,6 +392,13 @@
   const isScheduledType = (value) => SCHEDULED_TYPES.has(canonicalShiftType(value));
   const isCallInType = (value) => CALLIN_TYPES.has(canonicalShiftType(value));
   const isOvertimeType = (value) => OVERTIME_TYPES.has(canonicalShiftType(value));
+  const COST_CENTER_FIELDS = ["cost_center","CostCenter","costCenter","COST_CENTER"];
+  const getCostCenterFromRow = (row) => {
+    for (const key of COST_CENTER_FIELDS){
+      if (row && row[key] != null && row[key] !== "") return row[key].toString().trim();
+    }
+    return "";
+  };
 
   function parseCalendarDate(value){
     if (value == null) return null;
@@ -402,12 +430,17 @@
     const dateRaw = row.calendar_date ?? row.calendarDate ?? row.CalendarDate ?? row.date ?? "";
     const day = parseCalendarDate(dateRaw);
     const typ = getShiftTypeFromRow(row);
+    const costCenter = getCostCenterFromRow(row);
     if (!emp || !day) return [];
     if (!typ){
       if (stats) stats.missingShiftTime = (stats.missingShiftTime || 0) + 1;
       return [];
     }
-    const baseRaw = {...row};
+    if (!costCenter){
+      if (stats) stats.missingCostCenter = (stats.missingCostCenter || 0) + 1;
+      return [];
+    }
+    const baseRaw = {...row, cost_center: costCenter};
     const segs = [];
     let current = null;
     for (const col of HOUR_COLUMNS){
@@ -432,6 +465,7 @@
           start: slotStart,
           end: slotEnd,
           shift_type: typ,
+          cost_center: costCenter,
           raw: {...baseRaw}
         };
       }
@@ -472,9 +506,12 @@
   // ---------- Core state ----------
   let rawRows = [];
   let shifts = [];
-  let flaggedShifts = [];
-  let employees = [];
-  let optionalCols = [];
+let flaggedShifts = [];
+let employees = [];
+let optionalCols = [];
+let employeeCostCenters = new Map();
+let costCenters = [];
+let overlaySortAsc = true;
   let params = {
     restThreshold: 8,
     devThreshold: 1,
@@ -483,7 +520,8 @@
     dbMultiplier: 2,
     dateStart: null,
     dateEnd: null,
-    daysOfWeek: new Set(DEFAULT_DAYS)
+    daysOfWeek: new Set(DEFAULT_DAYS),
+    costCenters: new Set()
   };
 
   // ---------- Loading ----------
@@ -521,16 +559,21 @@
       const st = parseMaybe(r.start_datetime ?? r.start ?? r.start_time ?? r.Start ?? "");
       const en = parseMaybe(r.end_datetime ?? r.end ?? r.end_time ?? r.End ?? "");
       const typ = getShiftTypeFromRow(r);
+      const costCenter = getCostCenterFromRow(r);
       if (!typ){
         if (stats) stats.missingShiftTime = (stats.missingShiftTime || 0) + 1;
+        continue;
+      }
+      if (!costCenter){
+        if (stats) stats.missingCostCenter = (stats.missingCostCenter || 0) + 1;
         continue;
       }
       if (!emp || !st || !en) continue;
       if (en < st){
         const en2 = addDays(en, 1);
-        out.push({employee_id: emp, start: st, end: en2, shift_type: typ, raw:r});
+        out.push({employee_id: emp, start: st, end: en2, shift_type: typ, cost_center: costCenter, raw:{...r, cost_center: costCenter}});
       } else {
-        out.push({employee_id: emp, start: st, end: en, shift_type: typ, raw:r});
+        out.push({employee_id: emp, start: st, end: en, shift_type: typ, cost_center: costCenter, raw:{...r, cost_center: costCenter}});
       }
       // copy optional keys for availability matching
       for (const k of Object.keys(r)){
@@ -558,6 +601,12 @@
     const days = params.daysOfWeek;
     if (!days || days.size === 0 || days.size === DEFAULT_DAYS.length) return arr;
     return arr.filter(s=> days.has(s.start.getDay()));
+  }
+
+  function applyCostCenterFilter(arr){
+    const centers = params.costCenters;
+    if (!centers || centers.size === 0) return arr;
+    return arr.filter(s=> s.cost_center && centers.has(s.cost_center));
   }
 
   function computeRestAndFlags(arr){
@@ -684,10 +733,13 @@
   }
 
   function renderOverlayForEmployees(empIds){
+    const inputList = Array.isArray(empIds) ? empIds : [];
+    const labelsBox = document.getElementById("overlayLabels");
     const svg = document.getElementById("overlayChart");
-    const N = empIds.length;
-    const W = 1100;
-    const padL=240, padR=20, padT=18, padB=30;
+    const list = inputList.slice().sort((a,b)=> overlaySortAsc ? a.localeCompare(b) : b.localeCompare(a));
+    const N = list.length;
+    const W = 1000;
+    const padL=40, padR=20, padT=18, padB=30;
     const rowH = 90;           // height per employee row
     const gap = 10;            // vertical gap between rows
     const H = padT + (N? (N*rowH + (N-1)*gap) : 120) + padB;
@@ -699,6 +751,36 @@
 
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     svg.appendChild(g);
+
+    if (labelsBox){
+      labelsBox.innerHTML = "";
+      labelsBox.style.minHeight = Math.max(220, H) + "px";
+      if (!N){
+        const placeholder = document.createElement("div");
+        placeholder.className = "overlay-label placeholder";
+        placeholder.textContent = "Select employees to render.";
+        labelsBox.appendChild(placeholder);
+      } else {
+        list.forEach(empId=>{
+          const div = document.createElement("div");
+          div.className = "overlay-label";
+          div.style.minHeight = rowH + "px";
+          div.style.height = rowH + "px";
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = empId;
+          div.appendChild(nameSpan);
+          const ccSet = employeeCostCenters.get(empId);
+          if (ccSet && ccSet.size){
+            const ccList = Array.from(ccSet).sort();
+            const ccText = ccList.slice(0,2).join(", ") + (ccList.length>2?"…":"");
+            const small = document.createElement("small");
+            small.textContent = ccText;
+            div.appendChild(small);
+          }
+          labelsBox.appendChild(div);
+        });
+      }
+    }
 
     const x = (h) => padL + (h/24) * (W - padL - padR);
     const yRowTop = (i) => padT + i*(rowH + gap);
@@ -754,18 +836,8 @@
     }
     function hideTip(){ tooltip.style.display="none"; }
 
-    empIds.forEach((empId, idx) => {
+    list.forEach((empId, idx) => {
       const top = yRowTop(idx), bot = yRowBot(idx);
-      // row label
-      const label = document.createElementNS("http://www.w3.org/2000/svg","text");
-      label.setAttribute("x", padL - 12);
-      label.setAttribute("y", top + rowH/2);
-      label.setAttribute("text-anchor","end");
-      label.setAttribute("dominant-baseline","middle");
-      label.setAttribute("fill", "#e7e9ee");
-      label.setAttribute("font-size","13");
-      label.textContent = empId;
-      g.appendChild(label);
 
       // subtle row background
       const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
@@ -1082,6 +1154,15 @@
     });
   }
 
+  function filterCostCenterOptions(term){
+    const select = document.querySelector("#costCenterSelect");
+    if (!select) return;
+    const value = (term || "").toLowerCase();
+    Array.from(select.options).forEach(opt=>{
+      opt.hidden = value && !opt.value.toLowerCase().includes(value);
+    });
+  }
+
   function saveSvgAsPng(svgId){
     const svg = document.getElementById(svgId);
     const xml = new XMLSerializer().serializeToString(svg);
@@ -1107,10 +1188,12 @@
 
   // ---------- Wiring ----------
   function formatLoadStatus(prefix, info){
-    const missing = info?.stats?.missingShiftTime || 0;
-    if (missing){
-      return `${prefix} Skipped ${missing} row${missing===1?"":"s"} missing shift_time.`;
-    }
+    const missingShift = info?.stats?.missingShiftTime || 0;
+    const missingCost = info?.stats?.missingCostCenter || 0;
+    const parts = [];
+    if (missingShift) parts.push(`${missingShift} row${missingShift===1?"":"s"} missing shift_time`);
+    if (missingCost) parts.push(`${missingCost} row${missingCost===1?"":"s"} missing cost_center`);
+    if (parts.length) return `${prefix} Skipped ${parts.join("; ")}.`;
     return prefix;
   }
 
@@ -1142,12 +1225,13 @@
   });
   document.querySelector("#loadSampleBtn").addEventListener("click", ()=>{
     const hourCols = HOUR_COLUMNS.slice();
-    const header = ["employee_id","calendar_date", ...hourCols, "shift_time","shift_type","crew","district","job_class"];
+    const header = ["employee_id","calendar_date", ...hourCols, "shift_time","cost_center","shift_type","crew","district","job_class"];
     const sampleRows = [
       {
         employee_id:"E001",
         calendar_date:"08/11/2025",
         shift_time:"REG",
+        cost_center:"CC-100",
         shift_type:"scheduled",
         crew:"A",
         district:"North",
@@ -1158,6 +1242,7 @@
         employee_id:"E001",
         calendar_date:"08/12/2025",
         shift_time:"REG",
+        cost_center:"CC-100",
         shift_type:"scheduled",
         crew:"A",
         district:"North",
@@ -1168,6 +1253,7 @@
         employee_id:"E001",
         calendar_date:"08/13/2025",
         shift_time:"OT2",
+        cost_center:"CC-200",
         shift_type:"call-in",
         crew:"A",
         district:"North",
@@ -1178,6 +1264,7 @@
         employee_id:"E002",
         calendar_date:"08/11/2025",
         shift_time:"REG",
+        cost_center:"CC-200",
         shift_type:"reg",
         crew:"A",
         district:"North",
@@ -1188,6 +1275,7 @@
         employee_id:"E002",
         calendar_date:"08/12/2025",
         shift_time:"REG",
+        cost_center:"CC-200",
         shift_type:"reg",
         crew:"A",
         district:"North",
@@ -1198,6 +1286,7 @@
         employee_id:"E002",
         calendar_date:"08/13/2025",
         shift_time:"OT2",
+        cost_center:"CC-200",
         shift_type:"ot2",
         crew:"A",
         district:"North",
@@ -1208,6 +1297,7 @@
         employee_id:"E003",
         calendar_date:"08/11/2025",
         shift_time:"PTO",
+        cost_center:"CC-300",
         shift_type:"pto",
         crew:"B",
         district:"South",
@@ -1218,6 +1308,7 @@
         employee_id:"E003",
         calendar_date:"08/12/2025",
         shift_time:"REG",
+        cost_center:"CC-300",
         shift_type:"scheduled",
         crew:"B",
         district:"South",
@@ -1233,6 +1324,7 @@
         cells.push(val === undefined ? "" : val);
       });
       cells.push(row.shift_time || "");
+      cells.push(row.cost_center || "");
       cells.push(row.shift_type || "");
       cells.push(row.crew);
       cells.push(row.district);
@@ -1282,13 +1374,33 @@
     renderFlagTable();
     renderCalendarView();
   });
+  const costCenterSelectEl = document.querySelector("#costCenterSelect");
+  if (costCenterSelectEl){
+    costCenterSelectEl.addEventListener("change", ()=> recomputeAll());
+  }
+  const costCenterSearchEl = document.querySelector("#costCenterSearch");
+  if (costCenterSearchEl){
+    costCenterSearchEl.addEventListener("input", (e)=> filterCostCenterOptions(e.target.value));
+  }
+  const sortBtn = document.querySelector("#sortOverlayBtn");
+  const updateOverlaySortButton = ()=>{
+    if (sortBtn) sortBtn.textContent = overlaySortAsc ? "Name ↑" : "Name ↓";
+  };
+  if (sortBtn){
+    updateOverlaySortButton();
+    sortBtn.addEventListener("click", ()=>{
+      overlaySortAsc = !overlaySortAsc;
+      updateOverlaySortButton();
+      renderOverlayForEmployees(getSelectedEmployees());
+    });
+  }
 
   function afterLoad(){
-    const stats = {missingShiftTime:0};
+    const stats = {missingShiftTime:0, missingCostCenter:0};
     const normalized = normalizeRows(rawRows, stats);
     // optional columns for availability filter
     const sample = rawRows[0] || {};
-    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","shift_time","SHIFT_TIME","shiftTime","Employee","Start","End","start","end","type","calendar_date","calendarDate","CalendarDate","date"]);
+    const known = new Set(["employee_id","start_datetime","end_datetime","shift_type","shift_time","SHIFT_TIME","shiftTime","cost_center","CostCenter","costCenter","COST_CENTER","Employee","Start","End","start","end","type","calendar_date","calendarDate","CalendarDate","date"]);
     HOUR_COLUMNS.forEach(col=> known.add(col));
     optionalCols = Object.keys(sample).filter(k=> !known.has(k));
     const selAvail = document.querySelector("#availabilityColumn"); selAvail.innerHTML = '<option value="">(none)</option>';
@@ -1304,6 +1416,25 @@
     });
     // sensible default: select up to first 3
     employees.slice(0, Math.min(3, employees.length)).forEach((e, i)=> { empSel.options[i].selected = true; });
+
+    employeeCostCenters = new Map();
+    const ccSet = new Set();
+    normalized.forEach(s=>{
+      if (!s.cost_center) return;
+      ccSet.add(s.cost_center);
+      if (!employeeCostCenters.has(s.employee_id)) employeeCostCenters.set(s.employee_id, new Set());
+      employeeCostCenters.get(s.employee_id).add(s.cost_center);
+    });
+    costCenters = Array.from(ccSet).sort();
+    const ccSelect = document.querySelector("#costCenterSelect");
+    if (ccSelect){
+      ccSelect.innerHTML = "";
+      costCenters.forEach(cc=>{
+        const opt = document.createElement("option"); opt.value = cc; opt.textContent = cc; ccSelect.appendChild(opt);
+      });
+    }
+    const ccSearch = document.querySelector("#costCenterSearch");
+    if (ccSearch){ ccSearch.value = ""; filterCostCenterOptions(""); }
 
     // default date range from data
     const dates = normalized.map(s=> s.start).filter(Boolean).sort((a,b)=>a-b);
@@ -1331,6 +1462,9 @@
     const dayButtons = document.querySelectorAll("#dowPicker button");
     const activeDays = Array.from(dayButtons).filter(btn=> btn.classList.contains("active")).map(btn=> parseInt(btn.dataset.day, 10));
     params.daysOfWeek = new Set((activeDays.length ? activeDays : DEFAULT_DAYS));
+    const ccSelect = document.querySelector("#costCenterSelect");
+    const ccChosen = ccSelect ? Array.from(ccSelect.selectedOptions).map(o=>o.value).filter(Boolean) : [];
+    params.costCenters = new Set(ccChosen);
   }
 
   function recomputeAll(){
@@ -1345,15 +1479,17 @@
     const ranged = applyDateFilter(annotated);
     // 4) Day-of-week filter
     const dowFiltered = applyDayOfWeekFilter(ranged);
-    let computed = dowFiltered;
-    // 5) Baseline
+    // 5) Cost center filter
+    const ccFiltered = applyCostCenterFilter(dowFiltered);
+    let computed = ccFiltered;
+    // 6) Baseline
     const bl = perEmployeeBaseline(computed);
-    // 6) Deviations
+    // 7) Deviations
     computed = computeDeviations(computed, bl);
-    // 7) Save global
+    // 8) Save global
     shifts = computed;
 
-    // 8) Alternates for flagged shifts
+    // 9) Alternates for flagged shifts
     const idx = buildAvailabilityIndex(computed);
     const flagged = computed.filter(s=> s.double_bubble);
     for (const s of flagged){
