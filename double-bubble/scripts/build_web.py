@@ -115,13 +115,7 @@ HTML = r"""<!DOCTYPE html>
   .calendar-cell.has-db .badge{ border-color:rgba(255,93,93,0.4); color:var(--bad); }
   .overlay-header{ display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
   .overlay-header button{ padding:6px 10px; border-radius:8px; border:1px solid var(--grid); background:#0c0f14; color:var(--text); cursor:pointer; }
-  .overlay-scroll{ display:flex; gap:16px; align-items:flex-start; max-height:520px; overflow:auto; }
-  .overlay-chart-shell{ flex:1; min-width:0; }
-  .overlay-chart-shell svg{ width:100%; }
-  .overlay-labels{ min-width:210px; display:flex; flex-direction:column; gap:10px; padding-top:18px; }
-  .overlay-label{ min-height:90px; padding:0 8px; display:flex; align-items:center; font-size:14px; font-weight:500; color:var(--text); }
-  .overlay-label small{ color:var(--muted); font-size:11px; margin-left:8px; font-weight:400; }
-  .overlay-label.placeholder{ color:var(--muted); font-style:italic; }
+  .overlay-scroll-area{ max-height:520px; overflow:auto; border:1px solid var(--grid); border-radius:12px; padding:8px 10px; background:rgba(15,17,21,0.75); }
 </style>
 </head>
 <body>
@@ -254,13 +248,10 @@ HTML = r"""<!DOCTYPE html>
         <h2>3) Overlay timeline (stacked 0–24h rows)</h2>
         <div class="overlay-header">
           <div id="chartTitle" class="note">Select one or more employees to render.</div>
-          <button id="sortOverlayBtn" type="button">Sort A→Z</button>
+          <button id="sortOverlayBtn" type="button">Name ↑</button>
         </div>
-        <div class="overlay-wrap overlay-scroll">
-          <div id="overlayLabels" class="overlay-labels"></div>
-          <div class="overlay-chart-shell">
-            <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
-          </div>
+        <div class="overlay-scroll-area">
+          <svg id="overlayChart" preserveAspectRatio="xMidYMid meet"></svg>
         </div>
         <div class="foot">Each row is an employee; each rectangle is a shift segment (cross‑midnight split). Hover for details. Use Save to export PNG.</div>
         <div class="spacer"></div>
@@ -522,6 +513,7 @@ let employees = [];
 let optionalCols = [];
 let employeeCostCenters = new Map();
 let costCenters = [];
+let costCenterEmployees = new Map();
 let overlaySortAsc = true;
   let params = {
     restThreshold: 8,
@@ -740,17 +732,57 @@ let overlaySortAsc = true;
   // ---------- Visualization (multi-rows) ----------
   function getSelectedEmployees(){
     const sel = document.querySelector("#employeeSelect");
+    if (!sel) return [];
     return Array.from(sel.selectedOptions).map(o=>o.value);
+  }
+
+  function getSelectedCostCenters(){
+    const sel = document.querySelector("#costCenterSelect");
+    if (!sel) return [];
+    return Array.from(sel.selectedOptions).map(o=>o.value).filter(Boolean);
+  }
+
+  function updateEmployeeFilterByCostCenter(forceDefault=false){
+    const empSel = document.querySelector("#employeeSelect");
+    if (!empSel) return;
+    const selectedCenters = getSelectedCostCenters();
+    const includeAll = selectedCenters.length === 0;
+    const allowed = new Set();
+    if (includeAll){
+      employees.forEach(emp=> allowed.add(emp));
+    } else {
+      selectedCenters.forEach(cc=>{
+        const set = costCenterEmployees.get(cc);
+        if (set) set.forEach(emp=> allowed.add(emp));
+      });
+    }
+    const prev = forceDefault ? new Set() : new Set(getSelectedEmployees());
+    const list = Array.from(allowed).sort((a,b)=> a.localeCompare(b));
+    empSel.innerHTML = "";
+    list.forEach((emp, idx)=>{
+      const opt = document.createElement("option");
+      opt.value = emp; opt.textContent = emp;
+      if (forceDefault){
+        opt.selected = idx < Math.min(3, list.length);
+      } else if (prev.size){
+        opt.selected = prev.has(emp);
+      } else {
+        opt.selected = idx < Math.min(3, list.length);
+      }
+      empSel.appendChild(opt);
+    });
+    if (!list.length){
+      empSel.innerHTML = "";
+    }
   }
 
   function renderOverlayForEmployees(empIds){
     const inputList = Array.isArray(empIds) ? empIds : [];
-    const labelsBox = document.getElementById("overlayLabels");
     const svg = document.getElementById("overlayChart");
     const list = inputList.slice().sort((a,b)=> overlaySortAsc ? a.localeCompare(b) : b.localeCompare(a));
     const N = list.length;
     const W = 1000;
-    const padL=40, padR=20, padT=18, padB=30;
+    const padL=220, padR=30, padT=18, padB=30;
     const rowH = 90;           // height per employee row
     const gap = 10;            // vertical gap between rows
     const H = padT + (N? (N*rowH + (N-1)*gap) : 120) + padB;
@@ -762,36 +794,6 @@ let overlaySortAsc = true;
 
     const g = document.createElementNS("http://www.w3.org/2000/svg","g");
     svg.appendChild(g);
-
-    if (labelsBox){
-      labelsBox.innerHTML = "";
-      labelsBox.style.minHeight = Math.max(220, H) + "px";
-      if (!N){
-        const placeholder = document.createElement("div");
-        placeholder.className = "overlay-label placeholder";
-        placeholder.textContent = "Select employees to render.";
-        labelsBox.appendChild(placeholder);
-      } else {
-        list.forEach(empId=>{
-          const div = document.createElement("div");
-          div.className = "overlay-label";
-          div.style.minHeight = rowH + "px";
-          div.style.height = rowH + "px";
-          const nameSpan = document.createElement("span");
-          nameSpan.textContent = empId;
-          div.appendChild(nameSpan);
-          const ccSet = employeeCostCenters.get(empId);
-          if (ccSet && ccSet.size){
-            const ccList = Array.from(ccSet).sort();
-            const ccText = ccList.slice(0,2).join(", ") + (ccList.length>2?"…":"");
-            const small = document.createElement("small");
-            small.textContent = ccText;
-            div.appendChild(small);
-          }
-          labelsBox.appendChild(div);
-        });
-      }
-    }
 
     const x = (h) => padL + (h/24) * (W - padL - padR);
     const yRowTop = (i) => padT + i*(rowH + gap);
@@ -836,7 +838,13 @@ let overlaySortAsc = true;
       border:"1px solid #2a2f3a", borderRadius:"8px", pointerEvents:"none", fontSize:"12px",
       transform:"translate(-50%, -110%)", display:"none", zIndex:5
     });
-    svg.parentElement.appendChild(tooltip);
+    const container = svg.parentElement;
+    if (container){
+      const existing = container.querySelector(".overlay-tooltip");
+      if (existing) existing.remove();
+      tooltip.className = "overlay-tooltip";
+      container.appendChild(tooltip);
+    }
 
     function showTip(evt, text){
       tooltip.innerHTML = text;
@@ -849,15 +857,22 @@ let overlaySortAsc = true;
 
     list.forEach((empId, idx) => {
       const top = yRowTop(idx), bot = yRowBot(idx);
+      const label = document.createElementNS("http://www.w3.org/2000/svg","text");
+      label.setAttribute("x", padL - 12);
+      label.setAttribute("y", top + rowH/2);
+      label.setAttribute("text-anchor","end");
+      label.setAttribute("dominant-baseline","middle");
+      label.setAttribute("fill", "#e7e9ee");
+      label.setAttribute("font-size","13");
+      label.textContent = empId;
+      g.appendChild(label);
 
-      // subtle row background
       const bg = document.createElementNS("http://www.w3.org/2000/svg","rect");
       bg.setAttribute("x", padL); bg.setAttribute("y", top+2);
       bg.setAttribute("width", W - padL - padR); bg.setAttribute("height", rowH - 4);
       bg.setAttribute("fill", "rgba(255,255,255,0.02)");
       g.appendChild(bg);
 
-      // horizontal separator
       if (idx>0){
         const sep = document.createElementNS("http://www.w3.org/2000/svg","line");
         sep.setAttribute("x1", padL); sep.setAttribute("x2", W - padR);
@@ -868,7 +883,6 @@ let overlaySortAsc = true;
         g.appendChild(sep);
       }
 
-      // shifts for this employee
       const empShifts = shifts.filter(s=> s.employee_id===empId);
       const segs = splitCrossMidnightForViz(empShifts);
 
@@ -889,7 +903,7 @@ let overlaySortAsc = true;
         const shiftLabel = describeShiftType(s.shift_type);
         const tip = `
           <div><strong>${s.employee_id}</strong></div>
-          <div>Shift type: ${shiftLabel}</div>
+          <div>${shiftLabel}</div>
           <div>${toLocalISO(s.start)} → ${toLocalISO(s.end)} (${fmt2(durH)}h)</div>
           <div>Call-in: <span class="${callin?'pill ok':'pill'}">${callin?'Yes':'No'}</span> &nbsp; Double-bubble: <span class="${s.double_bubble?'pill bad':'pill'}">${s.double_bubble?'Yes':'No'}</span></div>
           <div>Rest before: ${s.rest_gap_h==null?'-':fmt2(s.rest_gap_h)+'h'} &nbsp; Deviation: ${s.deviation?fmt2(s.dev_hours)+'h':'No'}</div>
@@ -1387,7 +1401,10 @@ let overlaySortAsc = true;
   });
   const costCenterSelectEl = document.querySelector("#costCenterSelect");
   if (costCenterSelectEl){
-    costCenterSelectEl.addEventListener("change", ()=> recomputeAll());
+    costCenterSelectEl.addEventListener("change", ()=> {
+      updateEmployeeFilterByCostCenter();
+      recomputeAll();
+    });
   }
   const costCenterSearchEl = document.querySelector("#costCenterSearch");
   if (costCenterSearchEl){
@@ -1429,23 +1446,27 @@ let overlaySortAsc = true;
     employees.slice(0, Math.min(3, employees.length)).forEach((e, i)=> { empSel.options[i].selected = true; });
 
     employeeCostCenters = new Map();
+    costCenterEmployees = new Map();
     const ccSet = new Set();
     normalized.forEach(s=>{
       if (!s.cost_center) return;
       ccSet.add(s.cost_center);
       if (!employeeCostCenters.has(s.employee_id)) employeeCostCenters.set(s.employee_id, new Set());
       employeeCostCenters.get(s.employee_id).add(s.cost_center);
+      if (!costCenterEmployees.has(s.cost_center)) costCenterEmployees.set(s.cost_center, new Set());
+      costCenterEmployees.get(s.cost_center).add(s.employee_id);
     });
     costCenters = Array.from(ccSet).sort();
     const ccSelect = document.querySelector("#costCenterSelect");
     if (ccSelect){
       ccSelect.innerHTML = "";
       costCenters.forEach(cc=>{
-        const opt = document.createElement("option"); opt.value = cc; opt.textContent = cc; ccSelect.appendChild(opt);
+        const opt = document.createElement("option"); opt.value = cc; opt.textContent = cc; opt.selected = true; ccSelect.appendChild(opt);
       });
     }
     const ccSearch = document.querySelector("#costCenterSearch");
     if (ccSearch){ ccSearch.value = ""; filterCostCenterOptions(""); }
+    updateEmployeeFilterByCostCenter(true);
 
     // default date range from data
     const dates = normalized.map(s=> s.start).filter(Boolean).sort((a,b)=>a-b);
